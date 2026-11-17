@@ -1,0 +1,94 @@
+name: Auto Build APK & Release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Android APK & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🤖 Set up Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: 🔧 Install NDK & CMake
+        run: |
+          sdkmanager --install "ndk;26.1.10909125" "cmake;3.22.1"
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 🔨 Grant Executable Permission to Gradlew
+        run: chmod +x gradlew
+
+      - name: 🚀 Build APK with Gradle
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: 📦 Prepare Release Artifacts
+        id: prepare_apk
+        run: |
+          BUILD_NUM=${{ github.run_number }}
+          RELEASE_TAG="v1.0.0-build.${BUILD_NUM}"
+          APK_NAME="LuminaStudio-${RELEASE_TAG}.apk"
+          
+          # Copy and rename debug APK for release
+          cp app/build/outputs/apk/debug/app-debug.apk "${APK_NAME}"
+          
+          echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+          echo "apk_name=${APK_NAME}" >> $GITHUB_OUTPUT
+          echo "size=$(stat -c%s "${APK_NAME}")" >> $GITHUB_OUTPUT
+
+      - name: 📤 Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.prepare_apk.outputs.apk_name }}
+          path: ${{ steps.prepare_apk.outputs.apk_name }}
+          retention-days: 14
+
+      - name: 🌟 Create Automated GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.prepare_apk.outputs.tag }}
+          name: "Lumina Studio Release ${{ steps.prepare_apk.outputs.tag }}"
+          body: |
+            ## 🎬 Lumina Studio — Automated Build (${{ steps.prepare_apk.outputs.tag }})
+            
+            Build otomatis dihasilkan dari commit: `${{ github.sha }}`
+            
+            ### ✨ Fitur Terbaru Termasuk:
+            - **Color Studio**: DaVinci Resolve Node Tree, 3-Way Wheels, dan Pro Scopes.
+            - **Multi-Format LUT Importer**: Dukungan file `.cube`, `.3dl`, `.vlt`, dan Hald `.png`.
+            - **Titling & Track V2**: Overlay teks sinematik & viral subtitles dengan word highlight.
+            - **Keyframing Engine**: Diamond markers `◆` & efek Ken Burns dynamic push-in zoom.
+            - **GPU 32-bit Shader**: Rendering GLSL ES 3.0 & arsitektur C++ NDK hardware.
+            - **Multi-Aspect Ratio & Custom**: Preset 16:9 Cinema, 9:16 Shorts/TikTok (safe-zone), 4:5 IG, 1:1, 4:3, 21:9 Scope, dan dimensi piksel kustom bebas.
+            - **AI Shot Matcher**: Auto color balancing antar klip kamera.
+            
+            ### 📲 Download APK:
+            Unduh file installer **`${{ steps.prepare_apk.outputs.apk_name }}`** di bawah ini dan pasang di perangkat Android Anda (Android 8.0+ / API 26+).
+          files: ${{ steps.prepare_apk.outputs.apk_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

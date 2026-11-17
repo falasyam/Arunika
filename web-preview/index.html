@@ -970,6 +970,90 @@
       display: block;
     }
 
+    /* Multi-Aspect Ratio Viewport Classes & Modal */
+    .video-viewport.ratio-16-9 { max-width: 640px !important; aspect-ratio: 16 / 9 !important; }
+    .video-viewport.ratio-9-16 { max-width: 202px !important; aspect-ratio: 9 / 16 !important; }
+    .video-viewport.ratio-4-5  { max-width: 250px !important; aspect-ratio: 4 / 5 !important; }
+    .video-viewport.ratio-1-1  { max-width: 320px !important; aspect-ratio: 1 / 1 !important; }
+    .video-viewport.ratio-4-3  { max-width: 440px !important; aspect-ratio: 4 / 3 !important; }
+    .video-viewport.ratio-21-9 { max-width: 640px !important; aspect-ratio: 21 / 9 !important; }
+    .video-viewport.ratio-2-1  { max-width: 600px !important; aspect-ratio: 2 / 1 !important; }
+
+    .aspect-dialog {
+      background: var(--md-sys-color-surface-container-high);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 28px;
+      width: 100%;
+      max-width: 420px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      transform: scale(0.92);
+      transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .modal-backdrop.active .aspect-dialog {
+      transform: scale(1);
+    }
+    .aspect-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .aspect-card {
+      background: var(--md-sys-color-surface-container);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 12px;
+      padding: 8px 6px;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.15s ease;
+    }
+    .aspect-card:hover {
+      border-color: var(--md-sys-color-primary);
+    }
+    .aspect-card.active {
+      border-color: var(--md-sys-color-primary);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+    .aspect-card-icon {
+      font-size: 16px;
+    }
+    .aspect-card-title {
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .aspect-card-sub {
+      font-size: 9px;
+      color: var(--md-sys-color-outline);
+    }
+    .custom-dim-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .custom-input {
+      flex: 1;
+      background: var(--md-sys-color-surface-container);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: var(--md-sys-color-on-surface);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      text-align: center;
+    }
+    .custom-input:focus {
+      outline: none;
+      border-color: var(--md-sys-color-primary);
+    }
+
     /* Audio & Deliver cards */
     .card {
       background: var(--md-sys-color-surface-container);
@@ -1591,6 +1675,65 @@
       <div style="display:flex; gap:8px; margin-top:8px;">
         <button id="btnCancelRender" style="flex:1; height:40px; border-radius:20px; border:1px solid var(--md-sys-color-outline-variant); background:transparent; color:var(--md-sys-color-on-surface); font-size:12px; font-weight:600; cursor:pointer;">Batal</button>
         <button id="btnCloseRender" style="flex:1; height:40px; border-radius:20px; border:none; background:var(--md-sys-color-primary); color:var(--md-sys-color-on-primary); font-size:12px; font-weight:700; cursor:pointer; display:none;">Selesai</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Pemilih Aspek Rasio & Ukuran Kustom -->
+  <div class="modal-backdrop" id="aspectModal">
+    <div class="aspect-dialog">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="font-size:15px; font-weight:700;">Format Aspek Rasio & Ukuran Video</h2>
+        <button id="btnCloseAspectModal" style="background:transparent; border:none; color:var(--md-sys-color-outline); font-size:16px; cursor:pointer;">✕</button>
+      </div>
+
+      <p style="font-size:11px; color:var(--md-sys-color-outline);">Pilih preset platform atau tentukan resolusi piksel kustom.</p>
+
+      <div class="aspect-grid" id="aspectGrid">
+        <div class="aspect-card active" data-ratio="16:9" data-w="1920" data-h="1080">
+          <span class="aspect-card-icon">🖥️</span>
+          <span class="aspect-card-title">16:9 Cinema</span>
+          <span class="aspect-card-sub">1920x1080</span>
+        </div>
+        <div class="aspect-card" data-ratio="9:16" data-w="1080" data-h="1920">
+          <span class="aspect-card-icon">📱</span>
+          <span class="aspect-card-title">9:16 Shorts</span>
+          <span class="aspect-card-sub">TikTok/Reels</span>
+        </div>
+        <div class="aspect-card" data-ratio="4:5" data-w="1080" data-h="1350">
+          <span class="aspect-card-icon">📸</span>
+          <span class="aspect-card-title">4:5 IG Feed</span>
+          <span class="aspect-card-sub">1080x1350</span>
+        </div>
+        <div class="aspect-card" data-ratio="1:1" data-w="1080" data-h="1080">
+          <span class="aspect-card-icon">🔲</span>
+          <span class="aspect-card-title">1:1 Square</span>
+          <span class="aspect-card-sub">1080x1080</span>
+        </div>
+        <div class="aspect-card" data-ratio="4:3" data-w="1440" data-h="1080">
+          <span class="aspect-card-icon">📺</span>
+          <span class="aspect-card-title">4:3 Retro</span>
+          <span class="aspect-card-sub">TV / iPad</span>
+        </div>
+        <div class="aspect-card" data-ratio="21:9" data-w="2560" data-h="1080">
+          <span class="aspect-card-icon">🎬</span>
+          <span class="aspect-card-title">21:9 Scope</span>
+          <span class="aspect-card-sub">2.39:1 Anamorphic</span>
+        </div>
+      </div>
+
+      <!-- Custom Resolution Inputs -->
+      <div style="background:var(--md-sys-color-surface-container); padding:10px 12px; border-radius:14px; border:1px solid var(--md-sys-color-outline-variant);">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:11px; font-weight:700;">
+          <span>Ukuran Kustom (Piksel)</span>
+          <span id="customRatioFeedback" style="color:var(--md-sys-color-primary);">1920 x 1080 (16:9)</span>
+        </div>
+        <div class="custom-dim-row">
+          <input type="number" class="custom-input" id="customInputW" value="1920" placeholder="Width" min="100" max="7680">
+          <span style="color:var(--md-sys-color-outline); font-weight:bold;">✕</span>
+          <input type="number" class="custom-input" id="customInputH" value="1080" placeholder="Height" min="100" max="7680">
+          <button id="btnApplyCustomAspect" style="background:var(--md-sys-color-primary); color:var(--md-sys-color-on-primary); border:none; border-radius:10px; padding:8px 12px; font-size:11px; font-weight:700; cursor:pointer;">Terapkan</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3363,39 +3506,120 @@
     });
 
     // ========================================================
-    // MODUL 4: MULTI-ASPECT RATIO (16:9 ↔ 9:16 SHORTS ↔ 1:1)
+    // MODUL 4: MULTI-ASPECT RATIO & CUSTOM RESOLUTION ENGINE
     // ========================================================
     const btnAspectRatio = document.getElementById('btnAspectRatio');
     const aspectRatioLabel = document.getElementById('aspectRatioLabel');
+    const aspectModal = document.getElementById('aspectModal');
+    const btnCloseAspectModal = document.getElementById('btnCloseAspectModal');
+    const customInputW = document.getElementById('customInputW');
+    const customInputH = document.getElementById('customInputH');
+    const customRatioFeedback = document.getElementById('customRatioFeedback');
+    const btnApplyCustomAspect = document.getElementById('btnApplyCustomAspect');
     const viewports = document.querySelectorAll('.video-viewport');
+
     let currentAspect = '16:9';
+    let currentVideoWidth = 1920;
+    let currentVideoHeight = 1080;
+
+    function applyAspectRatio(ratio, w, h, label) {
+      currentAspect = ratio;
+      currentVideoWidth = w;
+      currentVideoHeight = h;
+
+      aspectRatioLabel.innerText = label;
+
+      // Reset all ratio classes
+      viewports.forEach(v => {
+        v.className = 'video-viewport';
+        v.style.maxWidth = '';
+        v.style.aspectRatio = '';
+      });
+
+      if (ratio === '16:9') {
+        viewports.forEach(v => v.classList.add('ratio-16-9'));
+      } else if (ratio === '9:16') {
+        viewports.forEach(v => v.classList.add('ratio-9-16', 'vertical'));
+      } else if (ratio === '4:5') {
+        viewports.forEach(v => v.classList.add('ratio-4-5', 'vertical'));
+      } else if (ratio === '1:1') {
+        viewports.forEach(v => v.classList.add('ratio-1-1'));
+      } else if (ratio === '4:3') {
+        viewports.forEach(v => v.classList.add('ratio-4-3'));
+      } else if (ratio === '21:9') {
+        viewports.forEach(v => v.classList.add('ratio-21-9'));
+      } else {
+        // Custom aspect ratio
+        viewports.forEach(v => {
+          v.style.aspectRatio = `${w} / ${h}`;
+          if (w < h) {
+            v.style.maxWidth = `${Math.round(360 * (w / h))}px`;
+            v.classList.add('vertical');
+          } else {
+            v.style.maxWidth = `${Math.min(640, Math.round(360 * (w / h)))}px`;
+          }
+        });
+      }
+
+      // Sync custom input boxes
+      if (customInputW) customInputW.value = w;
+      if (customInputH) customInputH.value = h;
+      if (customRatioFeedback) customRatioFeedback.innerText = `${w} x ${h} (${ratio})`;
+
+      renderMainScene();
+      renderCutCanvas();
+    }
 
     if (btnAspectRatio) {
       btnAspectRatio.addEventListener('click', () => {
         triggerHaptic('snap');
-        if (currentAspect === '16:9') {
-          currentAspect = '9:16';
-          aspectRatioLabel.innerText = '📱 9:16';
-          viewports.forEach(v => v.classList.add('vertical'));
-        } else if (currentAspect === '9:16') {
-          currentAspect = '1:1';
-          aspectRatioLabel.innerText = '🔲 1:1';
-          viewports.forEach(v => {
-            v.classList.remove('vertical');
-            v.style.maxWidth = '360px';
-          });
-        } else {
-          currentAspect = '16:9';
-          aspectRatioLabel.innerText = '🖥️ 16:9';
-          viewports.forEach(v => {
-            v.classList.remove('vertical');
-            v.style.maxWidth = '';
-          });
-        }
-        renderMainScene();
-        renderCutCanvas();
+        aspectModal.classList.add('active');
       });
     }
+
+    if (btnCloseAspectModal) {
+      btnCloseAspectModal.addEventListener('click', () => {
+        triggerHaptic('light');
+        aspectModal.classList.remove('active');
+      });
+    }
+
+    document.querySelectorAll('.aspect-card').forEach(card => {
+      card.addEventListener('click', () => {
+        triggerHaptic('snap');
+        document.querySelectorAll('.aspect-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const ratio = card.dataset.ratio;
+        const w = parseInt(card.dataset.w);
+        const h = parseInt(card.dataset.h);
+        const icon = card.querySelector('.aspect-card-icon').innerText;
+        applyAspectRatio(ratio, w, h, `${icon} ${ratio}`);
+        aspectModal.classList.remove('active');
+      });
+    });
+
+    if (btnApplyCustomAspect) {
+      btnApplyCustomAspect.addEventListener('click', () => {
+        triggerHaptic('heavy');
+        const w = parseInt(customInputW.value) || 1920;
+        const h = parseInt(customInputH.value) || 1080;
+        document.querySelectorAll('.aspect-card').forEach(c => c.classList.remove('active'));
+        applyAspectRatio('Custom', w, h, `📐 ${w}x${h}`);
+        aspectModal.classList.remove('active');
+      });
+    }
+
+    [customInputW, customInputH].forEach(input => {
+      if (input) {
+        input.addEventListener('input', () => {
+          const w = parseInt(customInputW.value) || 1920;
+          const h = parseInt(customInputH.value) || 1080;
+          const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+          const d = gcd(w, h);
+          customRatioFeedback.innerText = `${w} x ${h} (${Math.round(w/d)}:${Math.round(h/d)})`;
+        });
+      }
+    });
 
     // ========================================================
     // MODUL 3: AI SHOT MATCHER & AUTO COLOR BALANCE

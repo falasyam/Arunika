@@ -1,13 +1,54 @@
 package com.lumina.studio.model
 
 /**
- * Pilihan Format Aspek Rasio (Horizontal Sinematik vs Vertikal Reels/Shorts)
+ * Ukuran resolusi video (Lebar x Tinggi dalam piksel) dengan dukungan kustom
  */
-enum class AspectRatioMode(val label: String, val widthRatio: Int, val heightRatio: Int, val isVertical: Boolean) {
-    CINEMA_16_9("16:9 Cinema / YouTube", 16, 9, false),
-    REELS_9_16("9:16 Shorts / TikTok / Reels", 9, 16, true),
-    SQUARE_1_1("1:1 Square Instagram", 1, 1, false),
-    ANAMORPHIC_2_39("2.39:1 Scope Widescreen", 239, 100, false)
+data class VideoDimensions(
+    var width: Int = 1920,
+    var height: Int = 1080,
+    var isCustom: Boolean = false
+) {
+    val aspectRatioFloat: Float
+        get() = if (height > 0) width.toFloat() / height.toFloat() else 16f / 9f
+
+    val description: String
+        get() = "${width}x${height} (${getNearestRatioLabel()})"
+
+    private fun getNearestRatioLabel(): String {
+        val r = aspectRatioFloat
+        return when {
+            kotlin.math.abs(r - 16f / 9f) < 0.05f -> "16:9"
+            kotlin.math.abs(r - 9f / 16f) < 0.05f -> "9:16"
+            kotlin.math.abs(r - 1f) < 0.05f -> "1:1"
+            kotlin.math.abs(r - 4f / 5f) < 0.05f -> "4:5"
+            kotlin.math.abs(r - 4f / 3f) < 0.05f -> "4:3"
+            kotlin.math.abs(r - 21f / 9f) < 0.1f -> "21:9"
+            kotlin.math.abs(r - 2f) < 0.05f -> "2:1"
+            else -> "Custom"
+        }
+    }
+}
+
+/**
+ * Pilihan Format Aspek Rasio Lengkap
+ */
+enum class AspectRatioMode(
+    val label: String,
+    val defaultWidth: Int,
+    val defaultHeight: Int,
+    val widthRatio: Int,
+    val heightRatio: Int,
+    val isVertical: Boolean,
+    val platformTag: String
+) {
+    CINEMA_16_9("16:9 Cinema / YouTube", 1920, 1080, 16, 9, false, "YouTube / Landscape"),
+    REELS_9_16("9:16 Shorts / TikTok / Reels", 1080, 1920, 9, 16, true, "TikTok / Reels / Shorts"),
+    IG_PORTRAIT_4_5("4:5 Instagram Portrait Feed", 1080, 1350, 4, 5, true, "Instagram Feed"),
+    SQUARE_1_1("1:1 Square Feed", 1080, 1080, 1, 1, false, "Square Post"),
+    CLASSIC_4_3("4:3 Retro / iPad Academy", 1440, 1080, 4, 3, false, "Retro / TV / iPad"),
+    UNIVISIUM_2_1("2:1 (18:9) Univisium / Netflix", 2160, 1080, 2, 1, false, "Netflix / Streaming"),
+    ANAMORPHIC_21_9("21:9 (2.39:1) Scope Widescreen", 2560, 1080, 21, 9, false, "Ultra-wide Cinema"),
+    CUSTOM("Custom Width & Height", 1920, 1080, 0, 0, false, "Custom Dimensions")
 }
 
 /**

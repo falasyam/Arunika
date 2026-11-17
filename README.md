@@ -45,6 +45,22 @@ Lumina Studio adalah rangkaian produksi video sinematik mobile kelas profesional
 - Pilihan codec H.265 (HEVC 10-bit), H.264, dan ProRes.
 - Kontrol bitrate adaptif (8–80 Mbps).
 
+### 7. 📱 Multi-Aspect Ratio & Custom Resolution Engine
+- **Preset Format Platform**:
+  - `16:9` Cinema / YouTube (1920x1080)
+  - `9:16` Shorts / TikTok / Reels (1080x1920) dengan overlay *Safe Zone* pemandu tombol UI
+  - `4:5` Instagram Portrait Feed (1080x1350)
+  - `1:1` Square Feed (1080x1080)
+  - `4:3` Retro TV / iPad Academy (1440x1080)
+  - `21:9` Ultra-wide Anamorphic Scope (2560x1080)
+  - `2:1` Univisium / Netflix Streaming (2160x1080)
+- **Dimensi Kustom**: Input bebas piksel lebar & tinggi (Width x Height) hingga resolusi 8K.
+
+### 8. 🤖 Automated CI/CD (GitHub Actions Auto Build APK & Release)
+- Workflow `.github/workflows/build-and-release.yml` otomatis aktif setiap kali ada commit/push ke branch `main`.
+- Mengompilasi kode C++ NDK dan Kotlin Jetpack Compose menggunakan Gradle.
+- Menghasilkan file installer Android APK (`LuminaStudio-v1.0.0-build.<run_number>.apk`) dan mempublikasikannya langsung ke menu **GitHub Releases**.
+
 ---
 
 ## 📁 Struktur Repositori
