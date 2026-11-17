@@ -12,23 +12,85 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.falasyam.arunika.model.*
 import com.falasyam.arunika.ui.screens.AudioScreen
 import com.falasyam.arunika.ui.screens.CutScreen
 import com.falasyam.arunika.ui.screens.DeliverScreen
+import com.falasyam.arunika.ui.screens.ProjectListScreen
 
 /**
  * Shell Navigasi Global Arunika:
- * - Mengintegrasikan 4 Tab Kerja (Cut, Color, Audio, Deliver)
- * - M3 Expressive: NavigationBar pada Portrait, otomatis NavigationRail pada Landscape.
- * - Transisi animasi halus saat perpindahan tab.
+ * - Halaman Depan / Project Manager (Daftar Projek & Buat Projek Baru)
+ * - Editor Pascakomposisi dengan 4 Tab Kerja (Cut, Color, Audio, Deliver)
+ * - M3 Expressive: NavigationBar pada Portrait, otomatis NavigationRail pada Landscape
+ * - Transisi animasi halus saat perpindahan projek dan tab
+ */
+@Composable
+fun ArunikaMainShell() {
+    // Project Manager State
+    var projects by remember { mutableStateOf(ProjectPresets.createDefaultProjects()) }
+    var activeProject by remember { mutableStateOf<ProjectItem?>(null) }
+
+    AnimatedContent(
+        targetState = activeProject,
+        transitionSpec = {
+            fadeIn() togetherWith fadeOut()
+        },
+        label = "ProjectToEditorTransition"
+    ) { currentProj ->
+        if (currentProj == null) {
+            // HALAMAN DEPAN: Daftar Projek & Pembuatan Projek Baru
+            ProjectListScreen(
+                projects = projects,
+                onOpenProject = { proj ->
+                    activeProject = proj
+                },
+                onCreateProject = { newProj ->
+                    projects = listOf(newProj) + projects
+                    activeProject = newProj
+                },
+                onDeleteProject = { idToDelete ->
+                    projects = projects.filterNot { it.id == idToDelete }
+                },
+                onDuplicateProject = { proj ->
+                    val dup = proj.copy(
+                        id = "proj-${System.currentTimeMillis()}",
+                        name = "${proj.name} (Salinan)",
+                        lastModified = "Baru saja"
+                    )
+                    projects = listOf(dup) + projects
+                },
+                onRenameProject = { idToRename, newName ->
+                    projects = projects.map {
+                        if (it.id == idToRename) it.copy(name = newName) else it
+                    }
+                }
+            )
+        } else {
+            // EDITOR SHELL: Workspace Aktif (Cut, Color, Audio, Deliver)
+            ArunikaEditorShell(
+                project = currentProj,
+                onBackToProjects = {
+                    activeProject = null
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Shell Editor untuk Projek yang Sedang Aktif
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArunikaMainShell() {
+fun ArunikaEditorShell(
+    project: ProjectItem,
+    onBackToProjects: () -> Unit
+) {
     val haptic = LocalHapticFeedback.current
-    var activeTab by remember { mutableStateOf(ArunikaTab.COLOR) }
+    var activeTab by remember { mutableStateOf(ArunikaTab.CUT) }
 
     // Shared Project States
     val colorStudioState = remember { ColorStudioState() }
@@ -42,12 +104,41 @@ fun ArunikaMainShell() {
         Scaffold(
             topBar = {
                 TopAppBar(
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onBackToProjects()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Home,
+                                contentDescription = "Kembali ke Daftar Projek",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
                     title = {
                         Column {
-                            Text(
-                                text = "Arunika",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = project.name,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = project.resolutionLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
                             Text(
                                 text = "${activeTab.title} • ${activeTab.subtitle}",
                                 style = MaterialTheme.typography.labelSmall,
@@ -68,7 +159,7 @@ fun ArunikaMainShell() {
                             Icon(Icons.Rounded.Redo, contentDescription = "Redo")
                         }
 
-                        // Status Badge
+                        // Export Button
                         FilledTonalButton(
                             onClick = { activeTab = ArunikaTab.DELIVER },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -108,7 +199,7 @@ fun ArunikaMainShell() {
                                 icon = {
                                     Icon(
                                         imageVector = when (tab) {
-                                            ArunikaTab.CUT -> Icons.Rounded.ContentCut
+                                             ArunikaTab.CUT -> Icons.Rounded.ContentCut
                                             ArunikaTab.COLOR -> Icons.Rounded.Palette
                                             ArunikaTab.AUDIO -> Icons.Rounded.GraphicEq
                                             ArunikaTab.DELIVER -> Icons.Rounded.FileDownload
@@ -175,6 +266,8 @@ fun ArunikaMainShell() {
                     ) { targetTab ->
                         when (targetTab) {
                             ArunikaTab.CUT -> CutScreen(
+                                initialClips = project.videoClips,
+                                initialAudioClips = project.audioClips,
                                 isPlaying = isPlaying,
                                 onTogglePlay = { isPlaying = !isPlaying }
                             )

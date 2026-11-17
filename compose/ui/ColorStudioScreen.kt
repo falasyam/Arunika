@@ -327,7 +327,7 @@ fun ColorStudioScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(340.dp),
+                .heightIn(min = 340.dp, max = 390.dp),
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             tonalElevation = 6.dp
@@ -378,7 +378,9 @@ fun ColorStudioScreen(
                     0 -> {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
                         ) {
                             // Segmented Button: Lift | Gamma | Gain | Offset
                             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -398,35 +400,13 @@ fun ColorStudioScreen(
 
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            // Canvas Interactive Wheel
+                            // Canvas Interactive Wheel (sudah mencakup info roda, kanvas roda, dan slider luminance Y rapi tanpa tumpang tindih)
                             InteractiveColorWheel(
                                 value = state.activeValue(),
                                 label = state.activeTarget.label,
-                                modifier = Modifier.size(160.dp)
+                                wheelSize = 145f,
+                                modifier = Modifier.fillMaxWidth()
                             )
-
-                            // Master Luminance Slider
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Y", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Slider(
-                                    value = state.activeValue().luminance,
-                                    onValueChange = { state.activeValue().luminance = it },
-                                    valueRange = -1f..1f,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = String.format("%+.2f", state.activeValue().luminance),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
                         }
                     }
 

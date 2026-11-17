@@ -32,7 +32,7 @@ fun InteractiveColorWheel(
     value: ColorWheelValue,
     label: String = "",
     modifier: Modifier = Modifier,
-    wheelSize: Float = 220f, // dalam dp
+    wheelSize: Float = 145f, // ukuran optimal untuk Android mobile (dalam dp)
     onValueChanged: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
@@ -43,19 +43,21 @@ fun InteractiveColorWheel(
     val animatedY by animateFloatAsState(targetValue = value.y, animationSpec = spring(stiffness = 600f), label = "wheelY")
 
     Column(
-        modifier = modifier.padding(12.dp),
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Header Info Roda
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -70,18 +72,21 @@ fun InteractiveColorWheel(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     value.reset()
+                    onValueChanged()
                 },
-                enabled = !value.isNeutral
+                enabled = !value.isNeutral,
+                modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Refresh,
                     contentDescription = "Reset Color Wheel",
+                    modifier = Modifier.size(18.dp),
                     tint = if (!value.isNeutral) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Kanvas Roda Warna
         Box(
@@ -234,44 +239,64 @@ fun InteractiveColorWheel(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Master Luminance Dial (Slider Pengatur Terang/Gelap per Wheel)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        // Didesain khusus agar slider dan keterangan nilai tidak saling timpa di layar Android
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp)
         ) {
-            Text(
-                text = "Y",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Slider(
-                value = value.luminance,
-                onValueChange = { newVal ->
-                    // Haptic tick saat melewati 0
-                    if ((value.luminance < 0f && newVal >= 0f) || (value.luminance > 0f && newVal <= 0f)) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    }
-                    value.luminance = newVal
-                },
-                valueRange = -1.0f..1.0f,
-                modifier = Modifier.weight(1f),
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Luma (Y)",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            )
 
-            Text(
-                text = String.format("%+.2f", value.luminance),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.width(44.dp)
-            )
+                Slider(
+                    value = value.luminance,
+                    onValueChange = { newVal ->
+                        // Haptic tick saat melewati 0
+                        if ((value.luminance < 0f && newVal >= 0f) || (value.luminance > 0f && newVal <= 0f)) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                        value.luminance = newVal
+                        onValueChanged()
+                    },
+                    valueRange = -1.0f..1.0f,
+                    modifier = Modifier.weight(1f),
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = String.format(java.util.Locale.US, "%+.2f", value.luminance),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
         }
     }
 }

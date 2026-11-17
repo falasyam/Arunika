@@ -62,15 +62,109 @@ enum class ArunikaTab(val title: String, val subtitle: String) {
 }
 
 /**
- * Model data klip video di timeline
+ * Tipe media klip pada timeline
+ */
+enum class ClipMediaType(val label: String) {
+    VIDEO("Video"),
+    PHOTO("Foto"),
+    AUDIO("Audio")
+}
+
+/**
+ * Model data klip di timeline (Video, Foto, atau Audio)
  */
 data class TimelineClip(
     val id: String,
     val name: String,
     val durationMs: Long,
     val startOffsetMs: Long,
-    val colorTag: Long = 0xFF3B82F6 // Blue accent
+    val colorTag: Long = 0xFF3B82F6, // Blue accent
+    val mediaType: ClipMediaType = ClipMediaType.VIDEO,
+    val uriString: String? = null,
+    val volume: Float = 1.0f
 )
+
+/**
+ * Model data sebuah projek dalam Arunika
+ */
+data class ProjectItem(
+    val id: String,
+    val name: String,
+    val lastModified: String,
+    val durationMs: Long,
+    val resolutionLabel: String = "4K UHD",
+    val fps: Int = 24,
+    val aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
+    val videoClips: List<TimelineClip> = emptyList(),
+    val audioClips: List<TimelineClip> = emptyList(),
+    val gradientColors: List<Long> = listOf(0xFF1E3A8A, 0xFF3B82F6)
+)
+
+/**
+ * Factory untuk data sampel projek
+ */
+object ProjectPresets {
+    fun createDefaultProjects(): List<ProjectItem> = listOf(
+        ProjectItem(
+            id = "proj-1",
+            name = "Cinematic S-Log3 Tokyo",
+            lastModified = "Diedit 15 menit lalu",
+            durationMs = 19500,
+            resolutionLabel = "4K UHD",
+            fps = 24,
+            aspectRatio = AspectRatioMode.CINEMA_16_9,
+            videoClips = listOf(
+                TimelineClip("v1", "A001_C001_SamsungLog.mp4", 4200, 0, 0xFF3B82F6, ClipMediaType.VIDEO),
+                TimelineClip("v2", "A001_C002_Sunset_B-Roll.mp4", 6800, 4200, 0xFF10B981, ClipMediaType.VIDEO),
+                TimelineClip("v3", "Still_Tokyo_Tower.jpg", 3500, 11000, 0xFF8B5CF6, ClipMediaType.PHOTO),
+                TimelineClip("v4", "A001_C003_Interview_A_Cam.mp4", 5000, 14500, 0xFFF59E0B, ClipMediaType.VIDEO)
+            ),
+            audioClips = listOf(
+                TimelineClip("a1", "BGM_Cinematic_Ambient.mp3", 14000, 0, 0xFF059669, ClipMediaType.AUDIO),
+                TimelineClip("a2", "SFX_Whoosh_Transition.wav", 1500, 4100, 0xFFEA580C, ClipMediaType.AUDIO),
+                TimelineClip("a3", "Voiceover_Dialogue_01.m4a", 5000, 14500, 0xFFD97706, ClipMediaType.AUDIO)
+            ),
+            gradientColors = listOf(0xFF1E3A8A, 0xFF3B82F6)
+        ),
+        ProjectItem(
+            id = "proj-2",
+            name = "Shorts Fashion Week 2026",
+            lastModified = "Kemarin, 21:40",
+            durationMs = 15000,
+            resolutionLabel = "1080p FHD",
+            fps = 30,
+            aspectRatio = AspectRatioMode.REELS_9_16,
+            videoClips = listOf(
+                TimelineClip("v1", "Reels_Runway_Model.mp4", 5000, 0, 0xFFEC4899, ClipMediaType.VIDEO),
+                TimelineClip("v2", "Lookbook_Outfit_01.jpg", 3000, 5000, 0xFFA855F7, ClipMediaType.PHOTO),
+                TimelineClip("v3", "Slowmo_Backstage.mp4", 7000, 8000, 0xFF8B5CF6, ClipMediaType.VIDEO)
+            ),
+            audioClips = listOf(
+                TimelineClip("a1", "Phonk_Beat_HighEnergy.mp3", 15000, 0, 0xFF10B981, ClipMediaType.AUDIO)
+            ),
+            gradientColors = listOf(0xFF831843, 0xFFBE185D)
+        ),
+        ProjectItem(
+            id = "proj-3",
+            name = "Travel Vlog Bali Hidden Gems",
+            lastModified = "3 hari yang lalu",
+            durationMs = 28000,
+            resolutionLabel = "4K UHD",
+            fps = 60,
+            aspectRatio = AspectRatioMode.CINEMA_16_9,
+            videoClips = listOf(
+                TimelineClip("v1", "Drone_NusaPenida_Beach.mp4", 8000, 0, 0xFF0284C7, ClipMediaType.VIDEO),
+                TimelineClip("v2", "Sunset_Uluwatu.jpg", 4000, 8000, 0xFFF97316, ClipMediaType.PHOTO),
+                TimelineClip("v3", "Waterfall_Tegenungan.mp4", 9000, 12000, 0xFF0D9488, ClipMediaType.VIDEO)
+            ),
+            audioClips = listOf(
+                TimelineClip("a1", "Acoustic_Guitar_Tropical.mp3", 22000, 0, 0xFF059669, ClipMediaType.AUDIO),
+                TimelineClip("a2", "Ocean_Waves_Nature_SFX.wav", 8000, 0, 0xFF0284C7, ClipMediaType.AUDIO)
+            ),
+            gradientColors = listOf(0xFF065F46, 0xFF059669)
+        )
+    )
+}
 
 /**
  * Model data kontrol audio klip & master
