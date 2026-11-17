@@ -1,4 +1,4 @@
-package com.falasyam.arunika.ui.screens
+﻿package com.falasyam.arunika.ui.screens
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
@@ -143,9 +144,48 @@ fun CutScreen(
         }
     }
 
-    // Informasi Klip Terpilih
-    val activeClip = remember(selectedClipId, videoClips, audioClips) {
-        videoClips.find { it.id == selectedClipId } ?: audioClips.find { it.id == selectedClipId }
+    // Shared scroll state untuk timeline
+    val timelineScroll = rememberScrollState()
+
+    // Posisi waktu Playhead saat ini dalam milidetik
+    var currentPlayheadMs by remember { mutableStateOf(currentTimeMs) }
+    val totalTimelineDurationMs = remember(videoClips) { videoClips.sumOf { it.durationMs }.coerceAtLeast(1000L) }
+    val density = LocalDensity.current
+
+    // Playback loop ticker: menggerakkan playhead dan detik timecode secara real-time saat diputar
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            val startClock = System.currentTimeMillis() - currentPlayheadMs
+            while (isPlaying) {
+                val total = videoClips.sumOf { it.durationMs }.coerceAtLeast(1000L)
+                val elapsed = System.currentTimeMillis() - startClock
+                currentPlayheadMs = (elapsed % total)
+                kotlinx.coroutines.delay(33L)
+            }
+        }
+    }
+
+    // Auto-scroll timeline mengikuti posisi playhead
+    LaunchedEffect(currentPlayheadMs, isPlaying) {
+        if (isPlaying) {
+            val playheadPx = with(density) { (60.dp + (currentPlayheadMs / 30f).dp).toPx() }
+            val viewWidthPx = with(density) { 360.dp.toPx() }
+            val scrollTarget = (playheadPx - viewWidthPx / 2).toInt().coerceAtLeast(0)
+            if (kotlin.math.abs(timelineScroll.value - scrollTarget) > 15) {
+                timelineScroll.scrollTo(scrollTarget)
+            }
+        }
+    }
+
+    // Informasi Klip Terpilih berdasarkan playhead saat ini atau seleksi manual
+    val activeClip = remember(currentPlayheadMs, selectedClipId, videoClips, audioClips) {
+        if (selectedClipMediaType == ClipMediaType.AUDIO) {
+            audioClips.find { it.id == selectedClipId } ?: videoClips.firstOrNull()
+        } else {
+            videoClips.find { clip ->
+                currentPlayheadMs >= clip.startOffsetMs && currentPlayheadMs < (clip.startOffsetMs + clip.durationMs)
+            } ?: videoClips.find { it.id == selectedClipId } ?: videoClips.firstOrNull()
+        }
     }
 
     Column(
@@ -187,9 +227,14 @@ fun CutScreen(
                         .align(Alignment.BottomStart)
                         .padding(10.dp)
                 ) {
-                    val durSec = ((activeClip?.durationMs ?: 0L) / 1000.0)
+                    val curTotalSec = currentPlayheadMs / 1000
+                    val curMins = curTotalSec / 60
+                    val curSecs = curTotalSec % 60
+                    val curFrames = ((currentPlayheadMs % 1000) * 30 / 1000)
+                    val timeString = String.format(java.util.Locale.US, "%02d:%02d:%02d:%02d", 0, curMins, curSecs, curFrames)
+                    val totalSec = ((activeClip?.durationMs ?: totalTimelineDurationMs) / 1000.0)
                     Text(
-                        text = "00:00:02:12 / ${String.format(java.util.Locale.US, "%.1fs", durSec)}",
+                        text = "$timeString / ${String.format(java.util.Locale.US, "%.1fs", totalSec)}",
                         color = Color.White,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
@@ -413,9 +458,6 @@ fun CutScreen(
             tonalElevation = 4.dp
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Shared scroll state untuk menyinkronkan seluruh track timeline
-                val timelineScroll = rememberScrollState()
-
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header timeline & Tombol Import Aksi Utama
                     Row(
@@ -512,15 +554,17 @@ fun CutScreen(
                     // Divider track
                     Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-                    // Kontainer Kedua Track (V1 Video/Foto & A1 Audio) yang tersinkronisasi horizontal
-                    Column(
+                    // Kontainer Kedua Track (V1 Video/Foto & A1 Audio) dengan Playhead Bergerak
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .horizontalScroll(timelineScroll)
-                            .padding(vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(vertical = 4.dp)
                     ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                         Spacer(modifier = Modifier.width(60.dp))
 
                         // ============================================
@@ -552,6 +596,7 @@ fun CutScreen(
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             selectedClipId = clip.id
                                             selectedClipMediaType = clip.mediaType
+                                            currentPlayheadMs = clip.startOffsetMs
                                             onVideoUriChanged(clip.uriString)
                                         }
                                         .padding(8.dp)
@@ -623,6 +668,7 @@ fun CutScreen(
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             selectedClipId = clip.id
                                             selectedClipMediaType = ClipMediaType.AUDIO
+                                            currentPlayheadMs = clip.startOffsetMs
                                         }
                                         .padding(6.dp)
                                 ) {
@@ -689,25 +735,25 @@ fun CutScreen(
                             Spacer(modifier = Modifier.width(60.dp))
                         }
                     }
-                }
 
-                // Playhead (Jarum Penunjuk Posisi Tengah Vertikal Melintasi V1 dan A1)
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(2.dp)
-                        .align(Alignment.Center)
-                        .padding(top = 40.dp)
-                        .background(MaterialTheme.colorScheme.error)
-                ) {
-                    // Kepala playhead bulat
-                    Surface(
-                        color = MaterialTheme.colorScheme.error,
-                        shape = CircleShape,
+                    // Playhead (Garis Merah Penunjuk Posisi yang Berjalan Melintasi Track)
+                    val playheadXDp = 60.dp + (currentPlayheadMs / 30f).dp
+                    Box(
                         modifier = Modifier
-                            .size(10.dp)
-                            .align(Alignment.TopCenter)
-                    ) {}
+                            .offset(x = playheadXDp)
+                            .fillMaxHeight()
+                            .width(2.dp)
+                            .background(MaterialTheme.colorScheme.error)
+                    ) {
+                        // Kepala playhead bulat di bagian atas
+                        Surface(
+                            color = MaterialTheme.colorScheme.error,
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .size(12.dp)
+                                .offset(x = (-5).dp, y = 0.dp)
+                        ) {}
+                    }
                 }
             }
         }
@@ -764,6 +810,7 @@ fun CutScreen(
             }
         )
     }
+}
 }
 
 /**

@@ -6,6 +6,9 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CompareArrows
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
@@ -130,74 +134,91 @@ fun SplitScreenCompareOverlay(
     if (!isSplitEnabled) return
 
     val haptic = LocalHapticFeedback.current
+    val currentSplitPosition by rememberUpdatedState(splitPosition)
+    val currentOnChange by rememberUpdatedState(onSplitPositionChange)
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val totalWidth = maxWidth
-        val splitX = totalWidth * splitPosition
+        val totalWidthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+        val density = LocalDensity.current
+        val splitXDp = with(density) { (totalWidthPx * currentSplitPosition).toDp() }
 
-        // Garis Pembatas Vertikal
+        // Touch gesture capture di seluruh area viewport preview video
         Box(
             modifier = Modifier
-                .offset(x = splitX)
-                .fillMaxHeight()
-                .width(2.dp)
-                .background(Color.White)
+                .fillMaxSize()
+                .pointerInput(totalWidthPx) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        val deltaNorm = dragAmount.x / totalWidthPx
+                        val newPos = (currentSplitPosition + deltaNorm).coerceIn(0.02f, 0.98f)
+                        if ((newPos * 100).toInt() % 10 == 0) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                        currentOnChange(newPos)
+                    }
+                }
         ) {
+            // Label HUD "BEFORE (RAW)" di kiri dan "AFTER (GRADED)" di kanan
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.65f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "BEFORE (RAW)",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 10.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
+
+                Surface(
+                    color = Color.Black.copy(alpha = 0.65f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "AFTER (GRADED)",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 10.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            // Garis Pembatas Vertikal
+            Box(
+                modifier = Modifier
+                    .offset(x = splitXDp - 1.dp)
+                    .fillMaxHeight()
+                    .width(2.dp)
+                    .background(Color.White)
+            )
+
             // Handle bulat di tengah garis pemisah
             Surface(
                 shape = CircleShape,
                 color = Color.White,
-                shadowElevation = 6.dp,
+                shadowElevation = 8.dp,
                 modifier = Modifier
-                    .size(28.dp)
-                    .align(Alignment.Center)
-                    .offset(x = (-13).dp)
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            val newNorm = (splitPosition + (dragAmount.x / size.width.toFloat())).coerceIn(0.05f, 0.95f)
-                            if ((newNorm * 100).toInt() % 10 == 0) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            }
-                            onSplitPositionChange(newNorm)
-                        }
-                    }
+                    .offset(x = splitXDp - 18.dp)
+                    .size(36.dp)
+                    .align(Alignment.CenterStart)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(text = "↔", color = Color.Black, fontSize = 12.sp)
+                    Icon(
+                        imageVector = Icons.Rounded.CompareArrows,
+                        contentDescription = "Slide to Compare",
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
-            }
-        }
-
-        // Label HUD "BEFORE (LOG)" di kiri dan "AFTER (GRADED)" di kanan
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Surface(
-                color = Color.Black.copy(alpha = 0.65f),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    text = "BEFORE (LOG)",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-
-            Surface(
-                color = Color.Black.copy(alpha = 0.65f),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    text = "AFTER (GRADED)",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
             }
         }
     }

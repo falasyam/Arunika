@@ -29,6 +29,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import com.falasyam.arunika.model.*
+import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.InteractiveColorWheel
 import com.falasyam.arunika.ui.components.RealtimeScopeMonitor
 import com.falasyam.arunika.ui.components.SplitScreenCompareOverlay
@@ -112,12 +113,44 @@ fun ColorStudioScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
+                // Real-time Color Grading Effect Overlay (Wheels, LUT, CST, Luma)
+                ColorGradingOverlay(
+                    state = state,
+                    isBypassed = isBypassed,
+                    isSplitEnabled = state.isSplitCompareEnabled,
+                    splitPosition = state.splitPosition,
+                    modifier = Modifier.fillMaxSize()
+                )
+
                 // Split Screen Compare Overlay
                 SplitScreenCompareOverlay(
                     isSplitEnabled = state.isSplitCompareEnabled,
                     splitPosition = state.splitPosition,
                     onSplitPositionChange = { state.splitPosition = it }
                 )
+
+                // Tombol Play / Pause di sudut bawah tengah monitor
+                Surface(
+                    color = Color.Black.copy(alpha = 0.65f),
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 8.dp)
+                        .size(36.dp)
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onTogglePlay()
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
                 // Pro Scopes Monitor di sudut kanan atas video
                 RealtimeScopeMonitor(
