@@ -788,6 +788,7 @@ fun CutScreen(
 /**
  * Dialog Tabbed Import Media & Audio
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportMediaDialog(
     initialTab: Int = 0,

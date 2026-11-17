@@ -14,6 +14,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.falasyam.arunika.model.*
 import com.falasyam.arunika.ui.screens.AudioScreen
 import com.falasyam.arunika.ui.screens.CutScreen
