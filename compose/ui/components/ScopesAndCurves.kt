@@ -1,4 +1,4 @@
-package com.lumina.studio.ui.components
+package com.falasyam.arunika.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -22,7 +22,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lumina.studio.model.ScopeMode
+import com.falasyam.arunika.model.ScopeMode
 import kotlin.math.cos
 import kotlin.math.sin
 

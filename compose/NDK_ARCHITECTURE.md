@@ -1,6 +1,6 @@
-# Lumina Studio — Native NDK & 32-Bit GPU Shader Architecture
+# Arunika — Native NDK & 32-Bit GPU Shader Architecture
 
-Dokumen ini mendefinisikan arsitektur rendering performa tinggi berbasis C++ NDK, OpenGL ES 3.2, dan Vulkan Compute untuk Lumina Studio di Android.
+Dokumen ini mendefinisikan arsitektur rendering performa tinggi berbasis C++ NDK, OpenGL ES 3.2, dan Vulkan Compute untuk Arunika di Android.
 
 ---
 

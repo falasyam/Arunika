@@ -5,7 +5,7 @@
 #include <GLES3/gl32.h>
 #include <EGL/egl.h>
 
-#define TAG "LuminaNative"
+#define TAG "ArunikaNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
@@ -102,9 +102,9 @@ static GLuint compileShader(GLenum type, const char* source) {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeInit(
+Java_com_falasyam_arunika_model_NativeGpuShaderEngine_nativeInit(
     JNIEnv* env, jobject thiz, jint width, jint height) {
-    LOGI("Initializing Lumina 32-bit GLSL Engine: %dx%d", width, height);
+    LOGI("Initializing Arunika 32-bit GLSL Engine: %dx%d", width, height);
 
     GLuint vs = compileShader(GL_VERTEX_SHADER, VERTEX_SHADER_SRC);
     GLuint fs = compileShader(GL_FRAGMENT_SHADER, FRAGMENT_SHADER_SRC);
@@ -134,11 +134,11 @@ Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeInit(
     g_locUseLut = glGetUniformLocation(g_program, "u_useLut3D");
     g_locLutIntensity = glGetUniformLocation(g_program, "u_lutIntensity");
 
-    LOGI("Lumina Native Shader Engine linked successfully!");
+    LOGI("Arunika Native Shader Engine linked successfully!");
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeUpload3dLut(
+Java_com_falasyam_arunika_model_NativeGpuShaderEngine_nativeUpload3dLut(
     JNIEnv* env, jobject thiz, jfloatArray dataArray, jint size) {
     if (size <= 0) return;
 
@@ -164,7 +164,7 @@ Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeUpload3dLut(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeSetUniforms(
+Java_com_falasyam_arunika_model_NativeGpuShaderEngine_nativeSetUniforms(
     JNIEnv* env, jobject thiz,
     jfloat lr, jfloat lg, jfloat lb,
     jfloat gr, jfloat gg, jfloat gb,
@@ -186,7 +186,7 @@ Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeSetUniforms(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeRelease(
+Java_com_falasyam_arunika_model_NativeGpuShaderEngine_nativeRelease(
     JNIEnv* env, jobject thiz) {
     if (g_lutTexture3D) {
         glDeleteTextures(1, &g_lutTexture3D);
@@ -196,5 +196,5 @@ Java_com_lumina_studio_model_NativeGpuShaderEngine_nativeRelease(
         glDeleteProgram(g_program);
         g_program = 0;
     }
-    LOGI("Lumina Native Shader Engine released.");
+    LOGI("Arunika Native Shader Engine released.");
 }

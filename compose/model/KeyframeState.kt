@@ -1,4 +1,4 @@
-package com.lumina.studio.model
+package com.falasyam.arunika.model
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf

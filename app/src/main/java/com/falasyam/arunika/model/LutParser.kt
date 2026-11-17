@@ -1,10 +1,10 @@
-package com.lumina.studio.model
+package com.falasyam.arunika.model
 
 import java.io.InputStream
 import kotlin.math.floor
 
 /**
- * Format LUT yang didukung oleh Lumina Studio
+ * Format LUT yang didukung oleh Arunika
  */
 enum class LutFormat(val extension: String, val displayName: String) {
     CUBE_3D(".cube", "Adobe / DaVinci 3D LUT (.cube)"),

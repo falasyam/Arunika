@@ -1,4 +1,4 @@
-package com.lumina.studio.model
+package com.falasyam.arunika.model
 
 /**
  * Ukuran resolusi video (Lebar x Tinggi dalam piksel) dengan dukungan kustom
@@ -52,9 +52,9 @@ enum class AspectRatioMode(
 }
 
 /**
- * Representasi 4 Tab Kerja Utama dalam workflow Lumina Studio.
+ * Representasi 4 Tab Kerja Utama dalam workflow Arunika.
  */
-enum class LuminaTab(val title: String, val subtitle: String) {
+enum class ArunikaTab(val title: String, val subtitle: String) {
     CUT("Cut", "Assembly & Magnetic Timeline"),
     COLOR("Color", "32-bit Floating Point Color Wheels"),
     AUDIO("Audio", "Fairlight Lite & AI Voice Isolator"),

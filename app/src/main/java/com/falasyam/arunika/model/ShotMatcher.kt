@@ -1,4 +1,4 @@
-package com.lumina.studio.model
+package com.falasyam.arunika.model
 
 import kotlin.math.sqrt
 

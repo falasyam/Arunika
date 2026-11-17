@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "lumina-studio"
+rootProject.name = "arunika"
 include(":app")

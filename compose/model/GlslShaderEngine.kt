@@ -1,4 +1,4 @@
-package com.lumina.studio.model
+package com.falasyam.arunika.model
 
 /**
  * Parameter passing untuk 32-bit Floating Point GPU Shader
@@ -19,7 +19,7 @@ data class GpuGradeUniforms(
 )
 
 /**
- * Interface Shader Engine untuk Lumina Studio
+ * Interface Shader Engine untuk Arunika
  */
 interface IShaderEngine {
     fun initialize(width: Int, height: Int)
@@ -35,7 +35,7 @@ interface IShaderEngine {
 class NativeGpuShaderEngine : IShaderEngine {
     companion object {
         init {
-            // System.loadLibrary("lumina_native_engine")
+            // System.loadLibrary("arunika_native_engine")
         }
     }
 

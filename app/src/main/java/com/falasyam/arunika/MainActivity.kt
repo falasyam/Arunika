@@ -1,4 +1,4 @@
-package com.lumina.studio
+package com.falasyam.arunika
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -7,7 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.lumina.studio.ui.LuminaMainShell
+import com.falasyam.arunika.ui.ArunikaMainShell
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Surface(modifier = Modifier.fillMaxSize()) {
-                LuminaMainShell()
+                ArunikaMainShell()
             }
         }
     }

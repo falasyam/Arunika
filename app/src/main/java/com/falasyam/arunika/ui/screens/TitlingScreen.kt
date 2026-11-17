@@ -1,4 +1,4 @@
-package com.lumina.studio.ui.screens
+package com.falasyam.arunika.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -28,7 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lumina.studio.model.*
+import com.falasyam.arunika.model.*
 import kotlin.math.roundToInt
 
 /**
@@ -264,7 +264,7 @@ fun TitlingScreen(
                                 Button(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        val el = titlingState.addOpeningTitle("LUMINA STUDIO")
+                                        val el = titlingState.addOpeningTitle("ARUNIKA")
                                         selectedElementId = el.id
                                     },
                                     shape = RoundedCornerShape(12.dp)

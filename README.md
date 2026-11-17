@@ -1,6 +1,6 @@
-# Lumina Studio — Pro Mobile Video Suite
+# Arunika — Pro Mobile Video Suite
 
-Lumina Studio adalah rangkaian produksi video sinematik mobile kelas profesional yang dirancang khusus untuk smartphone flagship (Android / Jetpack Compose & NDK).
+Arunika adalah rangkaian produksi video sinematik mobile kelas profesional yang dirancang khusus untuk smartphone flagship (Android / Jetpack Compose & NDK).
 
 ---
 
@@ -59,14 +59,14 @@ Lumina Studio adalah rangkaian produksi video sinematik mobile kelas profesional
 ### 8. 🤖 Automated CI/CD (GitHub Actions Auto Build APK & Release)
 - Workflow `.github/workflows/build-and-release.yml` otomatis aktif setiap kali ada commit/push ke branch `main`.
 - Mengompilasi kode C++ NDK dan Kotlin Jetpack Compose menggunakan Gradle.
-- Menghasilkan file installer Android APK (`LuminaStudio-v1.0.0-build.<run_number>.apk`) dan mempublikasikannya langsung ke menu **GitHub Releases**.
+- Menghasilkan file installer Android APK (`Arunika-v1.0.0-build.<run_number>.apk`) dan mempublikasikannya langsung ke menu **GitHub Releases**.
 
 ---
 
 ## 📁 Struktur Repositori
 
 ```
-lumina-studio/
+arunika/
 ├── compose/
 │   ├── model/
 │   │   ├── AppState.kt           # State global aplikasi & timeline
@@ -76,7 +76,7 @@ lumina-studio/
 │   │   ├── KeyframeState.kt      # Interpolator transform keyframe
 │   │   └── GlslShaderEngine.kt   # JNI bridge ke native GPU engine
 │   ├── ui/
-│   │   ├── LuminaMainShell.kt    # Navigation shell M3
+│   │   ├── ArunikaMainShell.kt    # Navigation shell M3
 │   │   ├── ColorStudioScreen.kt  # Layar Color Grading & Node strip
 │   │   ├── components/           # Color Wheels, Scopes, Spline Curves
 │   │   └── screens/

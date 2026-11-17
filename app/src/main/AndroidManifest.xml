@@ -13,13 +13,13 @@
         android:label="@string/app_name"
         android:roundIcon="@android:drawable/ic_menu_camera"
         android:supportsRtl="true"
-        android:theme="@style/Theme.LuminaStudio">
+        android:theme="@style/Theme.Arunika">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.LuminaStudio">
+            android:theme="@style/Theme.Arunika">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

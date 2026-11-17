@@ -1,4 +1,4 @@
-package com.lumina.studio.ui.screens
+package com.falasyam.arunika.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lumina.studio.model.AudioStudioState
+import com.falasyam.arunika.model.AudioStudioState
 
 /**
  * Tab 3: Sound & Fairlight Lite

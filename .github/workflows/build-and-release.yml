@@ -50,7 +50,7 @@ jobs:
         run: |
           BUILD_NUM=${{ github.run_number }}
           RELEASE_TAG="v1.0.0-build.${BUILD_NUM}"
-          APK_NAME="LuminaStudio-${RELEASE_TAG}.apk"
+          APK_NAME="Arunika-${RELEASE_TAG}.apk"
           
           # Copy and rename debug APK for release
           cp app/build/outputs/apk/debug/app-debug.apk "${APK_NAME}"
@@ -70,9 +70,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.prepare_apk.outputs.tag }}
-          name: "Lumina Studio Release ${{ steps.prepare_apk.outputs.tag }}"
+          name: "Arunika Release ${{ steps.prepare_apk.outputs.tag }}"
           body: |
-            ## 🎬 Lumina Studio — Automated Build (${{ steps.prepare_apk.outputs.tag }})
+            ## 🎬 Arunika — Automated Build (${{ steps.prepare_apk.outputs.tag }})
             
             Build otomatis dihasilkan dari commit: `${{ github.sha }}`
             

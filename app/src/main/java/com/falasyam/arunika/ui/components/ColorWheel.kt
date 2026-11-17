@@ -1,4 +1,4 @@
-package com.lumina.studio.ui.components
+package com.falasyam.arunika.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lumina.studio.model.ColorWheelValue
+import com.falasyam.arunika.model.ColorWheelValue
 import kotlin.math.*
 
 /**

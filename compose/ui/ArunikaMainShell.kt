@@ -1,4 +1,4 @@
-package com.lumina.studio.ui
+package com.falasyam.arunika.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
@@ -13,22 +13,22 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lumina.studio.model.*
-import com.lumina.studio.ui.screens.AudioScreen
-import com.lumina.studio.ui.screens.CutScreen
-import com.lumina.studio.ui.screens.DeliverScreen
+import com.falasyam.arunika.model.*
+import com.falasyam.arunika.ui.screens.AudioScreen
+import com.falasyam.arunika.ui.screens.CutScreen
+import com.falasyam.arunika.ui.screens.DeliverScreen
 
 /**
- * Shell Navigasi Global Lumina Studio:
+ * Shell Navigasi Global Arunika:
  * - Mengintegrasikan 4 Tab Kerja (Cut, Color, Audio, Deliver)
  * - M3 Expressive: NavigationBar pada Portrait, otomatis NavigationRail pada Landscape.
  * - Transisi animasi halus saat perpindahan tab.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LuminaMainShell() {
+fun ArunikaMainShell() {
     val haptic = LocalHapticFeedback.current
-    var activeTab by remember { mutableStateOf(LuminaTab.COLOR) }
+    var activeTab by remember { mutableStateOf(ArunikaTab.COLOR) }
 
     // Shared Project States
     val colorStudioState = remember { ColorStudioState() }
@@ -45,7 +45,7 @@ fun LuminaMainShell() {
                     title = {
                         Column {
                             Text(
-                                text = "Lumina Studio",
+                                text = "Arunika",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
@@ -70,7 +70,7 @@ fun LuminaMainShell() {
 
                         // Status Badge
                         FilledTonalButton(
-                            onClick = { activeTab = LuminaTab.DELIVER },
+                            onClick = { activeTab = ArunikaTab.DELIVER },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
@@ -95,7 +95,7 @@ fun LuminaMainShell() {
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         tonalElevation = 4.dp
                     ) {
-                        LuminaTab.values().forEach { tab ->
+                        ArunikaTab.values().forEach { tab ->
                             val isSelected = activeTab == tab
                             NavigationBarItem(
                                 selected = isSelected,
@@ -108,10 +108,10 @@ fun LuminaMainShell() {
                                 icon = {
                                     Icon(
                                         imageVector = when (tab) {
-                                            LuminaTab.CUT -> Icons.Rounded.ContentCut
-                                            LuminaTab.COLOR -> Icons.Rounded.Palette
-                                            LuminaTab.AUDIO -> Icons.Rounded.GraphicEq
-                                            LuminaTab.DELIVER -> Icons.Rounded.FileDownload
+                                            ArunikaTab.CUT -> Icons.Rounded.ContentCut
+                                            ArunikaTab.COLOR -> Icons.Rounded.Palette
+                                            ArunikaTab.AUDIO -> Icons.Rounded.GraphicEq
+                                            ArunikaTab.DELIVER -> Icons.Rounded.FileDownload
                                         },
                                         contentDescription = tab.title
                                     )
@@ -134,7 +134,7 @@ fun LuminaMainShell() {
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         tonalElevation = 4.dp
                     ) {
-                        LuminaTab.values().forEach { tab ->
+                        ArunikaTab.values().forEach { tab ->
                             val isSelected = activeTab == tab
                             NavigationRailItem(
                                 selected = isSelected,
@@ -147,10 +147,10 @@ fun LuminaMainShell() {
                                 icon = {
                                     Icon(
                                         imageVector = when (tab) {
-                                            LuminaTab.CUT -> Icons.Rounded.ContentCut
-                                            LuminaTab.COLOR -> Icons.Rounded.Palette
-                                            LuminaTab.AUDIO -> Icons.Rounded.GraphicEq
-                                            LuminaTab.DELIVER -> Icons.Rounded.FileDownload
+                                            ArunikaTab.CUT -> Icons.Rounded.ContentCut
+                                            ArunikaTab.COLOR -> Icons.Rounded.Palette
+                                            ArunikaTab.AUDIO -> Icons.Rounded.GraphicEq
+                                            ArunikaTab.DELIVER -> Icons.Rounded.FileDownload
                                         },
                                         contentDescription = tab.title
                                     )
@@ -175,18 +175,18 @@ fun LuminaMainShell() {
                         label = "TabTransition"
                     ) { targetTab ->
                         when (targetTab) {
-                            LuminaTab.CUT -> CutScreen(
+                            ArunikaTab.CUT -> CutScreen(
                                 isPlaying = isPlaying,
                                 onTogglePlay = { isPlaying = !isPlaying }
                             )
-                            LuminaTab.COLOR -> ColorStudioScreen(
+                            ArunikaTab.COLOR -> ColorStudioScreen(
                                 state = colorStudioState,
                                 onNavigateTab = { tabName ->
-                                    activeTab = LuminaTab.valueOf(tabName)
+                                    activeTab = ArunikaTab.valueOf(tabName)
                                 }
                             )
-                            LuminaTab.AUDIO -> AudioScreen(state = audioState)
-                            LuminaTab.DELIVER -> DeliverScreen(state = deliverState)
+                            ArunikaTab.AUDIO -> AudioScreen(state = audioState)
+                            ArunikaTab.DELIVER -> DeliverScreen(state = deliverState)
                         }
                     }
                 }

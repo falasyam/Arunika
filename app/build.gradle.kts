@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.lumina.studio"
+    namespace = "com.falasyam.arunika"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.lumina.studio"
+        applicationId = "com.falasyam.arunika"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

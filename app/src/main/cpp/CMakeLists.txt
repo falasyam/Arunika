@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-project("lumina_native_engine")
+project("arunika_native_engine")
 
 add_library(
-    lumina_native_engine
+    arunika_native_engine
     SHARED
-    lumina_native_engine.cpp
+    arunika_native_engine.cpp
 )
 
 find_library(
@@ -29,7 +29,7 @@ find_library(
 )
 
 target_link_libraries(
-    lumina_native_engine
+    arunika_native_engine
     ${log-lib}
     ${gles3-lib}
     ${egl-lib}

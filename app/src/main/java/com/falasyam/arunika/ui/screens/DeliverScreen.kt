@@ -1,4 +1,4 @@
-package com.lumina.studio.ui.screens
+package com.falasyam.arunika.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,9 +19,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lumina.studio.model.DeliverExportState
-import com.lumina.studio.model.ExportCodec
-import com.lumina.studio.model.ExportResolution
+import com.falasyam.arunika.model.DeliverExportState
+import com.falasyam.arunika.model.ExportCodec
+import com.falasyam.arunika.model.ExportResolution
 
 /**
  * Tab 4: Deliver & Export
@@ -67,7 +67,7 @@ fun DeliverScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Lumina Studio Master Export",
+                            text = "Arunika Master Export",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )

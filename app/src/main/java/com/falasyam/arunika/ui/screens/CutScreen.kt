@@ -1,4 +1,4 @@
-package com.lumina.studio.ui.screens
+package com.falasyam.arunika.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lumina.studio.model.TimelineClip
+import com.falasyam.arunika.model.TimelineClip
 
 /**
  * Tab 1: Cut & Assembly

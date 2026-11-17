@@ -1,4 +1,4 @@
-package com.lumina.studio.ui
+package com.falasyam.arunika.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -24,10 +24,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lumina.studio.model.*
-import com.lumina.studio.ui.components.InteractiveColorWheel
-import com.lumina.studio.ui.components.RealtimeScopeMonitor
-import com.lumina.studio.ui.components.SplitScreenCompareOverlay
+import com.falasyam.arunika.model.*
+import com.falasyam.arunika.ui.components.InteractiveColorWheel
+import com.falasyam.arunika.ui.components.RealtimeScopeMonitor
+import com.falasyam.arunika.ui.components.SplitScreenCompareOverlay
 
 /**
  * Color Studio Pro:
