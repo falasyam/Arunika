@@ -219,16 +219,11 @@ fun ProjectListScreen(
                                     id = "proj-${System.currentTimeMillis()}",
                                     name = "Cinema Baru 16:9",
                                     lastModified = "Baru saja",
-                                    durationMs = 10000,
+                                    durationMs = 0L,
                                     resolutionLabel = "4K UHD",
                                     aspectRatio = AspectRatioMode.CINEMA_16_9,
-                                    videoClips = listOf(
-                                        TimelineClip("v1", "Source_Log_Cinema.mp4", 6000, 0, 0xFF3B82F6, ClipMediaType.VIDEO),
-                                        TimelineClip("v2", "Still_Title.jpg", 4000, 6000, 0xFF8B5CF6, ClipMediaType.PHOTO)
-                                    ),
-                                    audioClips = listOf(
-                                        TimelineClip("a1", "Soundtrack_BGM.mp3", 10000, 0, 0xFF059669, ClipMediaType.AUDIO)
-                                    ),
+                                    videoClips = emptyList(),
+                                    audioClips = emptyList(),
                                     gradientColors = listOf(0xFF1E3A8A, 0xFF3B82F6)
                                 )
                                 onCreateProject(newProj)
@@ -246,16 +241,11 @@ fun ProjectListScreen(
                                     id = "proj-${System.currentTimeMillis()}",
                                     name = "Shorts Baru 9:16",
                                     lastModified = "Baru saja",
-                                    durationMs = 12000,
+                                    durationMs = 0L,
                                     resolutionLabel = "1080p FHD",
                                     aspectRatio = AspectRatioMode.REELS_9_16,
-                                    videoClips = listOf(
-                                        TimelineClip("v1", "Vertical_Reels_Clip.mp4", 7000, 0, 0xFFEC4899, ClipMediaType.VIDEO),
-                                        TimelineClip("v2", "Endcard_Photo.jpg", 5000, 7000, 0xFFA855F7, ClipMediaType.PHOTO)
-                                    ),
-                                    audioClips = listOf(
-                                        TimelineClip("a1", "Trending_Beat.mp3", 12000, 0, 0xFF10B981, ClipMediaType.AUDIO)
-                                    ),
+                                    videoClips = emptyList(),
+                                    audioClips = emptyList(),
                                     gradientColors = listOf(0xFF831843, 0xFFBE185D)
                                 )
                                 onCreateProject(newProj)
@@ -693,17 +683,12 @@ fun CreateProjectDialog(
                         id = "proj-${System.currentTimeMillis()}",
                         name = if (name.isBlank()) "Projek Arunika" else name,
                         lastModified = "Baru saja",
-                        durationMs = 8000,
+                        durationMs = 0L,
                         resolutionLabel = selectedResolution,
                         fps = selectedFps,
                         aspectRatio = selectedRatio,
-                        videoClips = listOf(
-                            TimelineClip("v1", "Media_Clip_01.mp4", 5000, 0, 0xFF3B82F6, ClipMediaType.VIDEO),
-                            TimelineClip("v2", "Still_Title.jpg", 3000, 5000, 0xFF8B5CF6, ClipMediaType.PHOTO)
-                        ),
-                        audioClips = listOf(
-                            TimelineClip("a1", "Background_Score.mp3", 8000, 0, 0xFF059669, ClipMediaType.AUDIO)
-                        ),
+                        videoClips = emptyList(),
+                        audioClips = emptyList(),
                         gradientColors = colors
                     )
                     onCreate(newProj)

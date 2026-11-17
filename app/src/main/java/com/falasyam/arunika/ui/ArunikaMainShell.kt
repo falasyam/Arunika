@@ -101,7 +101,7 @@ fun ArunikaEditorShell(
     val titlingState = remember { TitlingState() }
     val deliverState = remember { DeliverExportState() }
     var isPlaying by remember { mutableStateOf(false) }
-    var currentVideoUri by remember { mutableStateOf<String?>(null) }
+    var currentVideoUri by remember(project) { mutableStateOf<String?>(project.videoClips.firstOrNull()?.uriString) }
 
     // Undo/Redo History (action labels untuk feedback visual)
     val undoStack = remember { ArrayDeque<String>() }
