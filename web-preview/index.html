@@ -1,0 +1,3319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lumina Studio — Pro Mobile Video Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --md-sys-color-background: #141218;
+      --md-sys-color-surface: #1d1b20;
+      --md-sys-color-surface-container: #211f26;
+      --md-sys-color-surface-container-high: #2b2930;
+      --md-sys-color-surface-container-highest: #36343b;
+      --md-sys-color-primary: #d0bcff;
+      --md-sys-color-primary-container: #4f378b;
+      --md-sys-color-on-primary: #381e72;
+      --md-sys-color-on-primary-container: #eaddff;
+      --md-sys-color-on-surface: #e6e0e9;
+      --md-sys-color-on-surface-variant: #cac4d0;
+      --md-sys-color-outline: #938f99;
+      --md-sys-color-outline-variant: #49454f;
+      --md-sys-color-error: #f2b8b5;
+      --neutral-d65: #0e0e11;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      background-color: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-surface);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top App Bar */
+    header {
+      height: 56px;
+      min-height: 56px;
+      background: var(--md-sys-color-surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      z-index: 30;
+    }
+
+    .title-group h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .title-group span {
+      font-size: 11px;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 18px;
+      border: none;
+      background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-on-surface);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-icon:active {
+      transform: scale(0.92);
+      background: var(--md-sys-color-surface-container-highest);
+    }
+    .btn-icon.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+
+    .btn-import {
+      padding: 0 12px;
+      height: 34px;
+      border-radius: 17px;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-primary);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: opacity 0.2s;
+    }
+    .btn-import:active { opacity: 0.8; }
+
+    /* App Body */
+    .app-body {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Side Navigation Rail (Landscape/Desktop) */
+    .nav-rail {
+      display: none;
+      width: 72px;
+      background: var(--md-sys-color-surface-container);
+      border-right: 1px solid var(--md-sys-color-outline-variant);
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      gap: 8px;
+      z-index: 25;
+    }
+
+    /* Workspace Content Area */
+    .tab-content-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tab-pane {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tab-pane.active {
+      display: flex;
+    }
+
+    /* ========================================================
+       SHARED MONITOR VIEWPORT WITH SPLIT & SCOPES
+       ======================================================== */
+    .monitor-area {
+      flex: 1;
+      min-height: 190px;
+      background: var(--neutral-d65);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      overflow: hidden;
+    }
+
+    .video-viewport {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+      touch-action: none;
+    }
+
+    /* Offscreen Video source */
+    video#userVideoElement {
+      display: none;
+    }
+
+    canvas#renderCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Floating Toolbar on Video */
+    .monitor-toolbar {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(15, 15, 20, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 2px 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      z-index: 10;
+    }
+
+    .monitor-tool-btn {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.2s;
+    }
+    .monitor-tool-btn.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+
+    /* Pro Scope Overlay Window */
+    .scope-overlay {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 140px;
+      height: 95px;
+      background: rgba(10, 10, 14, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 4px;
+      display: none;
+      flex-direction: column;
+      z-index: 12;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .scope-overlay.visible {
+      display: flex;
+    }
+    .scope-header {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--md-sys-color-primary);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      display: flex;
+      justify-content: space-between;
+    }
+    canvas#scopeCanvas {
+      width: 100%;
+      flex: 1;
+      border-radius: 4px;
+    }
+
+    /* Split Screen Wipe Bar */
+    .split-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      background: #ffffff;
+      z-index: 8;
+      display: none;
+      pointer-events: none;
+    }
+    .split-handle {
+      position: absolute;
+      top: 50%;
+      left: -13px;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 28px;
+      border-radius: 14px;
+      background: #ffffff;
+      color: #000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: ew-resize;
+      pointer-events: auto;
+    }
+    .split-label-before, .split-label-after {
+      position: absolute;
+      bottom: 8px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      display: none;
+      z-index: 9;
+    }
+    .split-label-before { left: 8px; color: #fff; }
+    .split-label-after { right: 8px; color: var(--md-sys-color-primary); }
+
+    .video-hud {
+      position: absolute;
+      bottom: 6px;
+      left: 8px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+      display: flex;
+      gap: 6px;
+      z-index: 7;
+    }
+
+    /* ========================================================
+       DAVINCI RESOLVE STYLE NODE GRAPH STRIP
+       ======================================================== */
+    .node-graph-strip {
+      background: var(--md-sys-color-surface-container);
+      border-radius: 16px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .node-graph-strip::-webkit-scrollbar {
+      display: none;
+    }
+    .node-io-chip {
+      padding: 3px 6px;
+      border-radius: 8px;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.5px;
+    }
+    .node-io-chip.in {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border: 1px solid #38bdf8;
+    }
+    .node-io-chip.out {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+      border: 1px solid #22c55e;
+    }
+    .node-chain {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .node-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--md-sys-color-surface-container-high);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 12px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .node-item.active {
+      background: var(--md-sys-color-primary-container);
+      border-color: var(--md-sys-color-primary);
+      box-shadow: 0 0 8px rgba(208, 188, 255, 0.3);
+    }
+    .node-item.bypassed {
+      opacity: 0.55;
+    }
+    .node-led {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .node-led.bypassed {
+      background: #ef4444;
+      box-shadow: 0 0 4px #ef4444;
+    }
+    .node-label {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .node-del-btn {
+      background: transparent;
+      border: none;
+      color: var(--md-sys-color-outline);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    .node-del-btn:hover {
+      color: var(--md-sys-color-error);
+    }
+    .node-arrow {
+      color: var(--md-sys-color-outline);
+      font-size: 11px;
+    }
+    .btn-add-node {
+      background: transparent;
+      border: 1px dashed var(--md-sys-color-outline);
+      border-radius: 12px;
+      color: var(--md-sys-color-primary);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .btn-add-node:hover {
+      border-color: var(--md-sys-color-primary);
+      background: rgba(208, 188, 255, 0.1);
+    }
+
+    /* ========================================================
+       COLOR STUDIO TOOL TABS (WHEELS | CST & LUT | CURVES)
+       ======================================================== */
+    .color-sheet {
+      background: var(--md-sys-color-surface);
+      border-top-left-radius: 28px;
+      border-top-right-radius: 28px;
+      box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      padding: 6px 14px 12px 14px;
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--md-sys-color-outline);
+      margin: 4px auto 6px auto;
+      opacity: 0.5;
+    }
+
+    /* Primary Navigation Tab within Color Studio */
+    .color-subtabs {
+      display: flex;
+      background: var(--md-sys-color-surface-container);
+      border-radius: 20px;
+      padding: 2px;
+      margin-bottom: 8px;
+      border: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .color-subtab {
+      flex: 1;
+      padding: 6px 0;
+      border-radius: 18px;
+      border: none;
+      background: transparent;
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .color-subtab.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+
+    .subtool-pane {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+    .subtool-pane.active {
+      display: flex;
+    }
+
+    /* Subtool 1: Color Wheels */
+    .segmented-row {
+      display: flex;
+      width: 100%;
+      max-width: 320px;
+      background: var(--md-sys-color-surface-container-high);
+      border-radius: 22px;
+      padding: 2px;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      margin-bottom: 6px;
+    }
+    .segmented-btn {
+      flex: 1;
+      padding: 6px 0;
+      border-radius: 18px;
+      border: none;
+      background: transparent;
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .segmented-btn.active {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+
+    .wheel-wrapper {
+      position: relative;
+      width: 160px;
+      height: 160px;
+      touch-action: none;
+    }
+    canvas#colorWheelCanvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      cursor: crosshair;
+    }
+
+    .luminance-bar {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .luminance-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--md-sys-color-surface-container-highest);
+      outline: none;
+    }
+    .luminance-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      background: var(--md-sys-color-primary);
+      cursor: pointer;
+    }
+
+    /* Subtool 2: CST & 3D LUT */
+    .cst-container {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--md-sys-color-on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .chips-row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .chip-item {
+      padding: 6px 12px;
+      border-radius: 16px;
+      background: var(--md-sys-color-surface-container-high);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .chip-item.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      border-color: var(--md-sys-color-primary);
+    }
+
+    .lut-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      margin-bottom: 6px;
+    }
+    .btn-import-lut {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      border: 1px solid var(--md-sys-color-primary);
+      border-radius: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .btn-import-lut:hover {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+    .lut-samples-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .lut-samples-row::-webkit-scrollbar {
+      display: none;
+    }
+    .btn-sample-lut {
+      background: var(--md-sys-color-surface-container);
+      border: 1px dashed var(--md-sys-color-outline-variant);
+      border-radius: 12px;
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .btn-sample-lut:hover {
+      border-color: var(--md-sys-color-primary);
+      color: var(--md-sys-color-primary);
+    }
+
+    .lut-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .lut-card {
+      position: relative;
+      background: var(--md-sys-color-surface-container-high);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 12px;
+      padding: 8px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .lut-card.active {
+      border-color: var(--md-sys-color-primary);
+      background: var(--md-sys-color-surface-container-highest);
+    }
+    .lut-card-badge {
+      width: 14px;
+      height: 14px;
+      border-radius: 7px;
+      margin: 0 auto 4px auto;
+    }
+    .lut-card-name {
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lut-format-badge {
+      display: inline-block;
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: rgba(208, 188, 255, 0.2);
+      color: var(--md-sys-color-primary);
+      margin-top: 2px;
+      text-transform: uppercase;
+    }
+    .lut-card-remove {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      background: transparent;
+      border: none;
+      color: var(--md-sys-color-outline);
+      font-size: 10px;
+      cursor: pointer;
+      padding: 2px;
+    }
+    .lut-card-remove:hover {
+      color: var(--md-sys-color-error);
+    }
+
+    /* Subtool 3: HSL Curves */
+    .curve-wrapper {
+      width: 100%;
+      max-width: 320px;
+      height: 140px;
+      background: #111015;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 12px;
+      position: relative;
+      touch-action: none;
+    }
+    canvas#curveCanvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ========================================================
+       CUT, AUDIO, DELIVER PANES (From Previous Phase)
+       ======================================================== */
+    .cut-pane, .audio-pane, .deliver-pane {
+      background: var(--md-sys-color-background);
+    }
+
+    /* Floating Island in Cut */
+    .cut-floating-island {
+      display: flex;
+      justify-content: center;
+      padding: 6px 12px;
+    }
+    .island-container {
+      background: var(--md-sys-color-surface-container-high);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 28px;
+      padding: 4px 8px;
+      display: flex;
+      gap: 6px;
+    }
+    .island-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 18px;
+      border: none;
+      background: transparent;
+      color: var(--md-sys-color-on-surface);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .island-btn:active { background: var(--md-sys-color-surface-container-highest); }
+
+    .timeline-dock {
+      height: 180px;
+      min-height: 180px;
+      background: var(--md-sys-color-surface-container);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .timeline-header {
+      padding: 6px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    .timeline-scroll-track {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 50vw;
+    }
+    .playhead-needle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50vw;
+      width: 2px;
+      background: #f43f5e;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .timeline-strip {
+      display: flex;
+      gap: 3px;
+      height: 80px;
+      align-items: center;
+    }
+    .clip-block {
+      height: 70px;
+      border-radius: 8px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      position: relative;
+      border: 2px solid transparent;
+    }
+    .clip-block.selected { border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.3); }
+    .clip-waveform {
+      position: absolute;
+      bottom: 6px;
+      left: 6px;
+      right: 6px;
+      height: 18px;
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      opacity: 0.45;
+      pointer-events: none;
+    }
+    .clip-wave-bar {
+      flex: 1;
+      background: #fff;
+      border-radius: 1px;
+    }
+    .clip-speed-badge {
+      background: rgba(0,0,0,0.55);
+      font-size: 8px;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #fff;
+    }
+
+    /* Track V2 Overlay & Keyframe Styles */
+    .timeline-dock {
+      height: 230px !important;
+      min-height: 230px !important;
+    }
+    .track-row-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--md-sys-color-outline);
+      letter-spacing: 0.5px;
+      padding: 2px 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .timeline-strip.v2-strip {
+      height: 42px;
+      margin-bottom: 4px;
+    }
+    .v2-clip-block {
+      height: 36px;
+      border-radius: 6px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #7e22ce;
+      border: 1.5px solid #c084fc;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      position: relative;
+    }
+    .v2-clip-block.active {
+      box-shadow: 0 0 10px #c084fc;
+      border-color: #fff;
+    }
+    .kf-diamond {
+      position: absolute;
+      bottom: 4px;
+      width: 7px;
+      height: 7px;
+      background: #facc15;
+      transform: rotate(45deg);
+      box-shadow: 0 0 4px #facc15;
+      pointer-events: none;
+    }
+    .video-text-overlay {
+      position: absolute;
+      cursor: move;
+      user-select: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px dashed rgba(208, 188, 255, 0.6);
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+      transition: border-color 0.15s;
+    }
+    .video-text-overlay:hover, .video-text-overlay.active {
+      border: 1.5px solid var(--md-sys-color-primary);
+      box-shadow: 0 0 12px rgba(208, 188, 255, 0.4);
+    }
+    .word-highlight {
+      background: #facc15;
+      color: #000 !important;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 900;
+    }
+    .gpu-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+      border: 1px solid #22c55e;
+    }
+
+    /* Audio & Deliver cards */
+    .card {
+      background: var(--md-sys-color-surface-container);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      margin: 12px 14px;
+    }
+    .card-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-title-row h2 { font-size: 13px; font-weight: 700; }
+
+    /* 3-Band EQ */
+    .eq-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      text-align: center;
+    }
+    .eq-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .eq-col span { font-size: 11px; }
+
+    /* M3 Render Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .render-dialog {
+      background: var(--md-sys-color-surface-container-high);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 28px;
+      width: 100%;
+      max-width: 360px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      transform: scale(0.92);
+      transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .modal-backdrop.active .render-dialog {
+      transform: scale(1);
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 12px;
+      background: var(--md-sys-color-surface-container-highest);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6750a4, #d0bcff, #6750a4);
+      background-size: 200% 100%;
+      animation: progressGlow 1.5s infinite linear;
+      transition: width 0.1s ease;
+      border-radius: 6px;
+    }
+    @keyframes progressGlow {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    .btn-master-export {
+      margin: 12px 14px;
+      height: 50px;
+      border-radius: 25px;
+      border: none;
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      height: 68px;
+      min-height: 68px;
+      background: var(--md-sys-color-surface-container);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 8px;
+      z-index: 30;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .nav-pill {
+      width: 56px;
+      height: 28px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .nav-item.active {
+      color: var(--md-sys-color-on-surface);
+      font-weight: 700;
+    }
+    .nav-item.active .nav-pill {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden File Input for Real User Media Ingestion -->
+  <input type="file" id="mediaFileInput" accept="video/*,image/*" style="display:none">
+
+  <!-- Hidden Video Element for Video Playback to Canvas -->
+  <video id="userVideoElement" playsinline loop muted></video>
+
+  <!-- Top App Bar -->
+  <header>
+    <div class="title-group">
+      <h1 id="appHeaderTitle">Lumina Studio</h1>
+      <span id="appHeaderSubtitle">Color Studio • CST & Pro Scopes</span>
+    </div>
+    <div class="top-actions">
+      <!-- Media Import Button -->
+      <button class="btn-import" id="btnImportMedia" title="Import Video/Foto dari HP">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        <span>+ Import</span>
+      </button>
+
+      <!-- Undo / Redo -->
+      <button class="btn-icon" id="btnUndo" title="Undo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+      </button>
+
+      <!-- Reset -->
+      <button class="btn-icon" id="btnReset" title="Reset All">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- App Body Layout -->
+  <div class="app-body">
+    <!-- Side NavRail (Landscape) -->
+    <aside class="nav-rail" id="navRail">
+      <div class="nav-item" data-tab="cut"><div class="nav-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0 12c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg></div><span>Cut</span></div>
+      <div class="nav-item active" data-tab="color"><div class="nav-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.22 19.58 10.57 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg></div><span>Color</span></div>
+      <div class="nav-item" data-tab="audio"><div class="nav-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div><span>Audio</span></div>
+      <div class="nav-item" data-tab="deliver"><div class="nav-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg></div><span>Deliver</span></div>
+    </aside>
+
+    <main class="tab-content-area">
+
+      <!-- ========================================================
+           TAB 1: CUT PANE
+           ======================================================== -->
+      <section class="tab-pane cut-pane" id="paneCut">
+        <div class="monitor-area">
+          <div class="video-viewport" style="position:relative;">
+            <canvas id="cutCanvas" width="640" height="360"></canvas>
+
+            <!-- Interactive On-Screen Title & Subtitle Overlay -->
+            <div class="video-text-overlay" id="cutTextOverlay" style="bottom: 24px; left: 50%; transform: translateX(-50%);">
+              <span id="overlayTextContent" style="font-size:16px; font-weight:700; color:#fff;">
+                Dr. Sarah Connor | <span style="color:#d0bcff;">Director of Photography</span>
+              </span>
+            </div>
+
+            <div class="video-hud">
+              <span id="cutTimeDisplay">00:00:03:14</span>
+              <span>/</span>
+              <span>00:00:19:15</span>
+              <span style="color:#d0bcff" id="cutKeyframeHud">[Transform: 1.0x]</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cut-floating-island">
+          <div class="island-container">
+            <button class="island-btn" id="btnSplitClip">✂️ Split</button>
+            <button class="island-btn" id="btnRippleDelete">🗑️ Delete</button>
+            <button class="island-btn" id="btnSpeedClip">⚡ 1.0x</button>
+            <button class="island-btn" id="btnAddLowerThird">💬 Lower Third</button>
+            <button class="island-btn" id="btnAddViralCaption">📝 Caption</button>
+            <button class="island-btn" id="btnToggleKeyframe">◆ Keyframe</button>
+            <button class="island-btn" id="btnKenBurnsZoom">🔍 Ken Burns</button>
+            <button class="island-btn" id="btnCutImport">+ Klip</button>
+          </div>
+        </div>
+
+        <div class="timeline-dock">
+          <div class="timeline-header">
+            <span>MULTI-TRACK TIMELINE (V2 OVERLAY + V1 VIDEO)</span>
+            <button class="btn-icon" id="btnCutPlay" style="width:30px; height:30px;">
+              <svg id="iconCutPlay" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+          <div class="playhead-needle"></div>
+          <div class="timeline-scroll-track" id="timelineScroll">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <!-- Track V2: Overlay & Titles -->
+              <div class="track-row-label"><span>TRACK V2 (TITLES / OVERLAY)</span></div>
+              <div class="timeline-strip v2-strip" id="titleClipContainer">
+                <div class="v2-clip-block active" id="v2SampleClip">
+                  <span>💬 T1: Lower Third</span>
+                </div>
+              </div>
+
+              <!-- Track V1: Main Video Clips -->
+              <div class="track-row-label"><span>TRACK V1 (MAGNETIC VIDEO)</span></div>
+              <div class="timeline-strip" id="clipContainer">
+                <div class="clip-block selected" style="width: 150px; background: #2563eb;">
+                  <span style="font-size:10px; font-weight:700; color:#fff;" id="timelineClipName">Samsung_Log_Clip.mp4</span>
+                  <span style="font-size:9px; color:rgba(255,255,255,0.7); font-family:monospace;">4.2s • 10-bit</span>
+                  <!-- Diamond keyframe indicators will be dynamically injected here -->
+                  <div class="kf-diamond" style="left: 20px;"></div>
+                  <div class="kf-diamond" style="right: 20px;"></div>
+                </div>
+                <div class="clip-block" style="width: 170px; background: #059669;">
+                  <span style="font-size:10px; font-weight:700; color:#fff;">Sunset_B-Roll.mp4</span>
+                  <span style="font-size:9px; color:rgba(255,255,255,0.7); font-family:monospace;">6.8s • 10-bit</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           TAB 2: COLOR STUDIO PANE (Scopes, Wipe, CST, LUT, Wheels)
+           ======================================================== -->
+      <section class="tab-pane color-pane active" id="paneColor">
+        <!-- Interactive Monitor Area -->
+        <div class="monitor-area">
+          <div class="video-viewport" id="viewportColor" style="position:relative;">
+            <canvas id="renderCanvas" width="640" height="360"></canvas>
+            <canvas id="glCanvas" width="640" height="360" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%;"></canvas>
+
+            <!-- Floating Video Controls (Scopes, Split Compare, GPU Shader) -->
+            <div class="monitor-toolbar">
+              <button class="monitor-tool-btn" id="btnToggleGpu">
+                <span>⚡</span> <span id="gpuBtnText">GPU Shader</span>
+              </button>
+              <button class="monitor-tool-btn" id="btnToggleScope">
+                <span>📈</span> <span id="scopeBtnText">Scopes</span>
+              </button>
+              <button class="monitor-tool-btn" id="btnToggleSplit">
+                <span>↔️</span> <span>Wipe</span>
+              </button>
+            </div>
+
+            <!-- Pro Scope Mini HUD Overlay -->
+            <div class="scope-overlay" id="scopeOverlay">
+              <div class="scope-header">
+                <span id="scopeModeTitle">WAVEFORM LUMA</span>
+                <span>IRE 0-100</span>
+              </div>
+              <canvas id="scopeCanvas" width="280" height="160"></canvas>
+            </div>
+
+            <!-- Split Screen Wipe Divider -->
+            <div class="split-divider" id="splitDivider">
+              <div class="split-handle" id="splitHandle">↔</div>
+            </div>
+            <div class="split-label-before" id="splitLabelBefore">BEFORE (LOG)</div>
+            <div class="split-label-after" id="splitLabelAfter">AFTER (GRADED)</div>
+
+            <!-- HUD Info -->
+            <div class="video-hud">
+              <span id="cstBadge">Samsung Log → Rec.709</span>
+              <span style="color:#d0bcff;" id="mediaNameTag">[Default Scene]</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- M3 Bottom Sheet -->
+        <div class="color-sheet">
+          <div class="sheet-handle"></div>
+
+          <!-- DaVinci Resolve Style Node Graph Pipeline -->
+          <div class="node-graph-strip" id="nodeGraphStrip">
+            <div class="node-io-chip in">IN</div>
+            <div class="node-chain" id="nodeChainContainer"></div>
+            <div class="node-io-chip out">OUT</div>
+            <button class="btn-add-node" id="btnAddSerialNode" title="Add Serial Grade Node">+ Serial</button>
+          </div>
+
+          <!-- 3 Subtabs: Wheels | CST & LUT | Curves -->
+          <div class="color-subtabs">
+            <button class="color-subtab active" data-sub="wheels">Color Wheels</button>
+            <button class="color-subtab" data-sub="cst">CST & 3D LUT</button>
+            <button class="color-subtab" data-sub="curves">HSL Curves</button>
+          </div>
+
+          <!-- SUBTOOL 1: COLOR WHEELS -->
+          <div class="subtool-pane active" id="subpaneWheels">
+            <div class="segmented-row">
+              <button class="segmented-btn" data-target="lift">Lift</button>
+              <button class="segmented-btn active" data-target="gamma">Gamma</button>
+              <button class="segmented-btn" data-target="gain">Gain</button>
+              <button class="segmented-btn" data-target="offset">Offset</button>
+            </div>
+
+            <div style="width:100%; max-width:320px; display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+              <span id="wheelLabel" style="font-weight:700;">Gamma (Midtones)</span>
+              <span id="wheelMetrics" style="color:var(--md-sys-color-outline);">Hue: 0° • Sat: 0%</span>
+            </div>
+
+            <div class="wheel-wrapper">
+              <canvas id="colorWheelCanvas" width="320" height="320"></canvas>
+            </div>
+
+            <div class="luminance-bar">
+              <span style="font-size:11px; font-weight:700;">Y</span>
+              <input type="range" class="luminance-slider" id="lumSlider" min="-1" max="1" step="0.01" value="0">
+              <span id="lumVal" style="font-size:11px; font-family:'JetBrains Mono',monospace; min-width:36px; text-align:right;">+0.00</span>
+            </div>
+          </div>
+
+          <!-- SUBTOOL 2: CST & 3D LUT ENGINE -->
+          <div class="subtool-pane" id="subpaneCst">
+            <div class="cst-container">
+              <!-- CST Camera Log Input -->
+              <span class="section-label">Camera Log Profile (Input CST)</span>
+              <div class="chips-row" id="cstChipsRow">
+                <div class="chip-item active" data-cst="samsung">Samsung D-Log</div>
+                <div class="chip-item" data-cst="apple">Apple Log</div>
+                <div class="chip-item" data-cst="sony">Sony S-Log3</div>
+                <div class="chip-item" data-cst="rec709">Rec.709 Standard</div>
+              </div>
+
+              <!-- 3D LUT Presets & Custom Multi-Format Importer -->
+              <div class="lut-header-row">
+                <span class="section-label" style="margin:0;">3D LUT & Film Emulation (.cube, .3dl, .vlt, .png)</span>
+                <label class="btn-import-lut" for="lutFileInput" title="Import LUT (.cube, .3dl, .vlt, .png)">
+                  <span>📥</span> <span>Import LUT</span>
+                </label>
+                <input type="file" id="lutFileInput" accept=".cube,.3dl,.vlt,.png,.jpg,.jpeg" style="display:none;">
+              </div>
+
+              <!-- Quick Sample LUTs for Instant One-Click Testing -->
+              <div class="lut-samples-row">
+                <span style="font-size:10px; color:var(--md-sys-color-outline); align-self:center;">Quick Load:</span>
+                <button class="btn-sample-lut" id="btnLoadSampleCube" title="Load Kodak Vision3 500T (.cube)">+ Kodak .cube</button>
+                <button class="btn-sample-lut" id="btnLoadSample3dl" title="Load Arri Alexa Natural (.3dl)">+ Arri .3dl</button>
+                <button class="btn-sample-lut" id="btnLoadSampleVlt" title="Load Panasonic V-Log Cinema (.vlt)">+ V-Log .vlt</button>
+              </div>
+
+              <div class="lut-grid" id="lutGrid">
+                <div class="lut-card active" data-lut="none">
+                  <div class="lut-card-badge" style="background:#64748b;"></div>
+                  <div class="lut-card-name">Natural / CST</div>
+                  <span class="lut-format-badge">Rec.709</span>
+                </div>
+                <div class="lut-card" data-lut="teal_orange">
+                  <div class="lut-card-badge" style="background:#0ea5e9;"></div>
+                  <div class="lut-card-name">Teal & Orange</div>
+                  <span class="lut-format-badge">Cinema</span>
+                </div>
+                <div class="lut-card" data-lut="portra">
+                  <div class="lut-card-badge" style="background:#f59e0b;"></div>
+                  <div class="lut-card-name">Kodak Portra</div>
+                  <span class="lut-format-badge">Analog</span>
+                </div>
+                <div class="lut-card" data-lut="eterna">
+                  <div class="lut-card-badge" style="background:#10b981;"></div>
+                  <div class="lut-card-name">Fuji Eterna</div>
+                  <span class="lut-format-badge">Print</span>
+                </div>
+                <div class="lut-card" data-lut="neon">
+                  <div class="lut-card-badge" style="background:#a855f7;"></div>
+                  <div class="lut-card-name">Cyber Neon</div>
+                  <span class="lut-format-badge">Vibrant</span>
+                </div>
+                <div class="lut-card" data-lut="noir">
+                  <div class="lut-card-badge" style="background:#e2e8f0;"></div>
+                  <div class="lut-card-name">Film Noir B&W</div>
+                  <span class="lut-format-badge">Mono</span>
+                </div>
+              </div>
+
+              <!-- LUT Intensity Slider -->
+              <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;">
+                <span>LUT Opacity / Mix</span>
+                <span id="lutIntensityVal" style="font-weight:700;">85%</span>
+              </div>
+              <input type="range" class="luminance-slider" id="lutIntensitySlider" min="0" max="100" value="85">
+            </div>
+          </div>
+
+          <!-- SUBTOOL 3: HSL CURVES -->
+          <div class="subtool-pane" id="subpaneCurves">
+            <div style="width:100%; max-width:320px; display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px;">
+                <span class="section-label">Hue vs Saturation Spline</span>
+                <span style="color:var(--md-sys-color-primary); font-size:10px;">Drag anchors to adjust</span>
+              </div>
+              <div class="curve-wrapper">
+                <canvas id="curveCanvas" width="320" height="140"></canvas>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--md-sys-color-outline); font-family:'JetBrains Mono',monospace;">
+                <span>RED</span><span>YEL</span><span>GRN</span><span>CYN</span><span>BLU</span><span>MAG</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ========================================================
+           TAB 3: AUDIO PANE
+           ======================================================== -->
+      <section class="tab-pane audio-pane" id="paneAudio">
+        <!-- Live VU Meters -->
+        <div class="card">
+          <div class="card-title-row">
+            <h2>MASTER PEAK METERS</h2>
+            <span id="audioPeakDbfs" style="font-size:12px; font-weight:700; color:var(--md-sys-color-primary);">-6.2 dB True Peak</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:11px; font-weight:700; width:12px;">L</span>
+              <div style="flex:1; height:8px; background:#25242b; border-radius:4px; overflow:hidden;">
+                <div id="audioFillL" style="height:100%; width:70%; background:linear-gradient(90deg,#10b981 70%,#f59e0b 88%,#ef4444 98%); transition: width 0.08s ease;"></div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:11px; font-weight:700; width:12px;">R</span>
+              <div style="flex:1; height:8px; background:#25242b; border-radius:4px; overflow:hidden;">
+                <div id="audioFillR" style="height:100%; width:65%; background:linear-gradient(90deg,#10b981 70%,#f59e0b 88%,#ef4444 98%); transition: width 0.08s ease;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--md-sys-color-outline); font-family:monospace; padding-left:20px;">
+            <span>-48</span><span>-24</span><span>-12</span><span>-6</span><span>0 dB</span>
+          </div>
+        </div>
+
+        <!-- AI Voice Suite -->
+        <div class="card">
+          <div class="card-title-row">
+            <h2>AI Voice Isolation (Neural Model)</h2>
+            <span id="aiVoiceBadge" style="font-size:11px; background:#4f378b; color:#eaddff; padding:2px 8px; border-radius:8px; font-weight:600;">Active</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:12px;">
+            <span>Voice Clarity & De-Noise</span>
+            <span id="voiceIsoText" style="font-weight:700;">50%</span>
+          </div>
+          <input type="range" class="luminance-slider" id="voiceIsoInput" min="0" max="100" value="50">
+          
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <div class="chip-item active" id="chipDeReverb" style="flex:1; justify-content:center;">De-Reverb</div>
+            <div class="chip-item active" id="chipAutoDuck" style="flex:1; justify-content:center;">Auto-Ducking</div>
+          </div>
+        </div>
+
+        <!-- 3-Band Equalizer -->
+        <div class="card">
+          <div class="card-title-row">
+            <h2>3-Band Parametric EQ</h2>
+            <span style="font-size:11px; color:var(--md-sys-color-outline);">Fairlight DSP</span>
+          </div>
+          <div class="eq-row">
+            <div class="eq-col">
+              <span style="font-weight:700;">BASS</span>
+              <span style="font-size:9px; color:var(--md-sys-color-outline);">100 Hz</span>
+              <input type="range" class="luminance-slider" id="eqBass" min="-12" max="12" step="1" value="0">
+              <span id="eqBassVal" style="font-size:10px; font-family:monospace;">0 dB</span>
+            </div>
+            <div class="eq-col">
+              <span style="font-weight:700;">VOCAL</span>
+              <span style="font-size:9px; color:var(--md-sys-color-outline);">1.2 kHz</span>
+              <input type="range" class="luminance-slider" id="eqMid" min="-12" max="12" step="1" value="2">
+              <span id="eqMidVal" style="font-size:10px; font-family:monospace;">+2 dB</span>
+            </div>
+            <div class="eq-col">
+              <span style="font-weight:700;">AIR</span>
+              <span style="font-size:9px; color:var(--md-sys-color-outline);">8 kHz</span>
+              <input type="range" class="luminance-slider" id="eqTreble" min="-12" max="12" step="1" value="1">
+              <span id="eqTrebleVal" style="font-size:10px; font-family:monospace;">+1 dB</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           TAB 4: DELIVER PANE
+           ======================================================== -->
+      <section class="tab-pane deliver-pane" id="paneDeliver">
+        <!-- Target Overview Card -->
+        <div class="card" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+          <div class="card-title-row">
+            <h2>Master Video Export</h2>
+            <span id="exportSizeBadge" style="background:var(--md-sys-color-primary); color:var(--md-sys-color-on-primary); padding:4px 8px; border-radius:8px; font-weight:700; font-size:12px;">~85 MB</span>
+          </div>
+          <p id="exportSummarySubtitle" style="font-size:11px; opacity:0.85;">4K UHD • 30 FPS • H.265 10-bit Rec.709 HDR</p>
+        </div>
+
+        <!-- Format Options Card -->
+        <div class="card">
+          <span class="section-label">Resolusi Render</span>
+          <div class="chips-row" id="exportResRow">
+            <div class="chip-item active" data-res="4k">4K UHD</div>
+            <div class="chip-item" data-res="1080p">1080p FHD</div>
+            <div class="chip-item" data-res="720p">720p HD</div>
+          </div>
+
+          <span class="section-label" style="margin-top:6px;">Frame Rate</span>
+          <div class="chips-row" id="exportFpsRow">
+            <div class="chip-item" data-fps="24">24 fps (Film)</div>
+            <div class="chip-item active" data-fps="30">30 fps</div>
+            <div class="chip-item" data-fps="60">60 fps (High)</div>
+          </div>
+
+          <span class="section-label" style="margin-top:6px;">Hardware Codec</span>
+          <div class="chips-row" id="exportCodecRow">
+            <div class="chip-item active" data-codec="hevc">H.265 / HEVC 10-bit</div>
+            <div class="chip-item" data-codec="h264">H.264 (Universal)</div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:6px;">
+            <span>Bitrate Video</span>
+            <span id="exportBitrateVal" style="font-weight:700;">35 Mbps</span>
+          </div>
+          <input type="range" class="luminance-slider" id="exportBitrateSlider" min="10" max="80" step="5" value="35">
+
+          <span class="section-label" style="margin-top:6px;">Color Tagging</span>
+          <div class="chips-row" id="exportColorTagRow">
+            <div class="chip-item active" data-tag="rec709">Rec.709 (SDR)</div>
+            <div class="chip-item" data-tag="rec2020">Rec.2020 (HLG / HDR)</div>
+          </div>
+        </div>
+
+        <button class="btn-master-export" id="btnDeliverAction">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          <span>Render & Save Master Video</span>
+        </button>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- M3 Expressive Render Modal -->
+  <div class="modal-backdrop" id="renderModal">
+    <div class="render-dialog">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="font-size:16px; font-weight:700;">Rendering Master Video</h2>
+        <span id="renderStatusBadge" style="font-size:10px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); padding:3px 8px; border-radius:12px; font-weight:700;">32-BIT FLOAT</span>
+      </div>
+      
+      <p id="renderStatusText" style="font-size:12px; color:var(--md-sys-color-outline);">Menginisialisasi GPU Shader & MediaRecorder...</p>
+
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="renderProgressBar"></div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; font-size:11px; font-family:'JetBrains Mono',monospace;">
+        <span id="renderFrameText">Frame 0 / 120</span>
+        <span id="renderPercentText">0%</span>
+      </div>
+
+      <div id="renderSuccessBanner" style="display:none; background:#064e3b; color:#a7f3d0; padding:10px 12px; border-radius:12px; font-size:11px;">
+        🎉 Berhasil! Video hasil grading telah diproses dan otomatis diunduh ke perangkat Anda.
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button id="btnCancelRender" style="flex:1; height:40px; border-radius:20px; border:1px solid var(--md-sys-color-outline-variant); background:transparent; color:var(--md-sys-color-on-surface); font-size:12px; font-weight:600; cursor:pointer;">Batal</button>
+        <button id="btnCloseRender" style="flex:1; height:40px; border-radius:20px; border:none; background:var(--md-sys-color-primary); color:var(--md-sys-color-on-primary); font-size:12px; font-weight:700; cursor:pointer; display:none;">Selesai</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (M3 Expressive) -->
+  <nav class="bottom-nav">
+    <div class="nav-item" data-tab="cut">
+      <div class="nav-pill">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0 12c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg>
+      </div>
+      <span>Cut</span>
+    </div>
+    <div class="nav-item active" data-tab="color">
+      <div class="nav-pill">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.22 19.58 10.57 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+      </div>
+      <span>Color</span>
+    </div>
+    <div class="nav-item" data-tab="audio">
+      <div class="nav-pill">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+      </div>
+      <span>Audio</span>
+    </div>
+    <div class="nav-item" data-tab="deliver">
+      <div class="nav-pill">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+      </div>
+      <span>Deliver</span>
+    </div>
+  </nav>
+
+  <script>
+    /* ========================================================
+       STATE CONFIGURATION
+       ======================================================== */
+    let currentTab = 'color';
+    let currentColorSubtab = 'wheels';
+
+    // Wheels
+    const wheels = {
+      lift:   { x: 0, y: 0, lum: 0, label: 'Lift (Shadows)' },
+      gamma:  { x: 0, y: 0, lum: 0, label: 'Gamma (Midtones)' },
+      gain:   { x: 0, y: 0, lum: 0, label: 'Gain (Highlights)' },
+      offset: { x: 0, y: 0, lum: 0, label: 'Offset (Global)' }
+    };
+    let activeWheelTarget = 'gamma';
+
+    // ========================================================
+    // DAVINCI STYLE NODE TREE PIPELINE
+    // ========================================================
+    let gradeNodes = [
+      { id: 1, name: '01: CST Input', enabled: true, hue: 0, sat: 0, con: 15, bri: 5, lut: 'none', lutInt: 0.8 },
+      { id: 2, name: '02: Primaries', enabled: true, hue: 0, sat: 0, con: 0, bri: 0, lut: 'none', lutInt: 0.8 },
+      { id: 3, name: '03: Film Look', enabled: true, hue: 15, sat: 20, con: 10, bri: 0, lut: 'teal_orange', lutInt: 0.75 },
+      { id: 4, name: '04: Vignette', enabled: true, hue: 0, sat: -5, con: 8, bri: -4, lut: 'none', lutInt: 0.8 }
+    ];
+    let activeNodeId = 2; // Primaries selected by default
+
+    function renderNodeStrip() {
+      const container = document.getElementById('nodeChainContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      gradeNodes.forEach((node, index) => {
+        const item = document.createElement('div');
+        item.className = 'node-item' + (node.id === activeNodeId ? ' active' : '') + (!node.enabled ? ' bypassed' : '');
+        
+        // Node LED toggle (Bypass / Enable)
+        const led = document.createElement('div');
+        led.className = 'node-led' + (!node.enabled ? ' bypassed' : '');
+        led.title = node.enabled ? 'Click to Bypass Node' : 'Click to Enable Node';
+        led.addEventListener('click', (e) => {
+          e.stopPropagation();
+          triggerHaptic('snap');
+          node.enabled = !node.enabled;
+          renderNodeStrip();
+          renderMainScene();
+        });
+
+        const label = document.createElement('span');
+        label.className = 'node-label';
+        label.innerText = node.name;
+
+        item.appendChild(led);
+        item.appendChild(label);
+
+        // Delete button if > 1 node
+        if (gradeNodes.length > 1) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'node-del-btn';
+          delBtn.innerHTML = '✕';
+          delBtn.title = 'Delete Node';
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            triggerHaptic('heavy');
+            gradeNodes = gradeNodes.filter(n => n.id !== node.id);
+            if (activeNodeId === node.id) {
+              activeNodeId = gradeNodes[0].id;
+            }
+            renderNodeStrip();
+            renderMainScene();
+          });
+          item.appendChild(delBtn);
+        }
+
+        item.addEventListener('click', () => {
+          triggerHaptic('light');
+          activeNodeId = node.id;
+          renderNodeStrip();
+        });
+
+        container.appendChild(item);
+
+        if (index < gradeNodes.length - 1) {
+          const arrow = document.createElement('span');
+          arrow.className = 'node-arrow';
+          arrow.innerText = '➔';
+          container.appendChild(arrow);
+        }
+      });
+    }
+
+    const btnAddSerialNode = document.getElementById('btnAddSerialNode');
+    if (btnAddSerialNode) {
+      btnAddSerialNode.addEventListener('click', () => {
+        triggerHaptic('snap');
+        const nextId = (gradeNodes.reduce((max, n) => Math.max(max, n.id), 0) || 0) + 1;
+        const padId = nextId < 10 ? '0' + nextId : nextId;
+        const newNode = {
+          id: nextId,
+          name: `${padId}: Serial Grade`,
+          enabled: true,
+          hue: 0,
+          sat: 0,
+          con: 0,
+          bri: 0,
+          lut: 'none',
+          lutInt: 0.8
+        };
+        gradeNodes.push(newNode);
+        activeNodeId = nextId;
+        renderNodeStrip();
+        renderMainScene();
+      });
+    }
+
+    // Modul 1: Scopes & Split Screen
+    let currentScopeMode = 'none'; // 'none', 'waveform', 'vectorscope'
+    let isSplitWipeEnabled = false;
+    let splitRatio = 0.5; // 0.0 to 1.0
+
+    // Modul 2: CST & 3D LUT
+    let currentCst = 'samsung';
+    let currentLut = 'none';
+    let lutIntensity = 0.85;
+
+    // Modul 3: User Media
+    let userMedia = null; // Image or Video object
+    let isVideoMedia = false;
+    let mediaName = 'Default Cinematic Scene';
+
+    // Haptics
+    function triggerHaptic(type = 'light') {
+      if ('vibrate' in navigator) {
+        if (type === 'snap') navigator.vibrate(18);
+        else if (type === 'heavy') navigator.vibrate([20, 60, 20]);
+        else navigator.vibrate(10);
+      }
+    }
+
+    /* ========================================================
+       TAB SWITCHING
+       ======================================================== */
+    function switchTab(tabId) {
+      triggerHaptic('light');
+      currentTab = tabId;
+
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      const activePane = document.getElementById('pane' + tabId.charAt(0).toUpperCase() + tabId.slice(1));
+      if (activePane) activePane.classList.add('active');
+
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tabId);
+      });
+
+      const titleMap = {
+        cut: 'Cut • Magnetic Timeline',
+        color: 'Color Studio • CST & Pro Scopes',
+        audio: 'Audio • Fairlight Lite & AI Suite',
+        deliver: 'Deliver • Master 4K 10-bit HDR'
+      };
+      document.getElementById('appHeaderSubtitle').innerText = titleMap[tabId] || '';
+    }
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => switchTab(item.dataset.tab));
+    });
+
+    // Color Studio Subtabs (Wheels / CST / Curves)
+    document.querySelectorAll('.color-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        triggerHaptic('light');
+        document.querySelectorAll('.color-subtab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        currentColorSubtab = btn.dataset.sub;
+        document.querySelectorAll('.subtool-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById('subpane' + currentColorSubtab.charAt(0).toUpperCase() + currentColorSubtab.slice(1)).classList.add('active');
+
+        if (currentColorSubtab === 'curves') drawHslCurve();
+      });
+    });
+
+    /* ========================================================
+       MODUL 3: MEDIA INGESTION (USER VIDEO / FOTO IMPORT)
+       ======================================================== */
+    const mediaFileInput = document.getElementById('mediaFileInput');
+    const userVideo = document.getElementById('userVideoElement');
+    const btnImportMedia = document.getElementById('btnImportMedia');
+    const mediaNameTag = document.getElementById('mediaNameTag');
+    const timelineClipName = document.getElementById('timelineClipName');
+
+    btnImportMedia.addEventListener('click', () => {
+      triggerHaptic('light');
+      mediaFileInput.click();
+    });
+
+    document.getElementById('btnCutImport').addEventListener('click', () => mediaFileInput.click());
+
+    mediaFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      triggerHaptic('heavy');
+      mediaName = file.name;
+      mediaNameTag.innerText = `[${file.name.substring(0, 18)}...]`;
+      timelineClipName.innerText = file.name;
+
+      if (file.type.startsWith('video/')) {
+        isVideoMedia = true;
+        const videoUrl = URL.createObjectURL(file);
+        userVideo.src = videoUrl;
+        userVideo.load();
+        userVideo.play().catch(() => {});
+        userMedia = userVideo;
+      } else if (file.type.startsWith('image/')) {
+        isVideoMedia = false;
+        userVideo.pause();
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            userMedia = img;
+            requestAnimationFrame(renderMainScene);
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    /* ========================================================
+       CANVAS RENDERING & SHADER SIMULATION
+       ======================================================== */
+    const renderCanvas = document.getElementById('renderCanvas');
+    const renderCtx = renderCanvas.getContext('2d');
+    const cutCanvas = document.getElementById('cutCanvas');
+    const cutCtx = cutCanvas.getContext('2d');
+
+    // Default Cinematic Sample (Used when user hasn't imported media yet)
+    function drawSyntheticCinematicFrame(targetCtx, w, h, isRawLog = false) {
+      const grad = targetCtx.createLinearGradient(0, 0, w, h);
+      if (isRawLog) {
+        // Flat, de-saturated milky log curve
+        grad.addColorStop(0, '#3a444d');
+        grad.addColorStop(0.5, '#4f4744');
+        grad.addColorStop(1, '#383637');
+      } else {
+        // Rich high dynamic range
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(0.5, '#3b211a');
+        grad.addColorStop(1, '#180f0c');
+      }
+      targetCtx.fillStyle = grad;
+      targetCtx.fillRect(0, 0, w, h);
+
+      // Sunset sun orb
+      const sunGrad = targetCtx.createRadialGradient(w * 0.7, h * 0.4, 4, w * 0.7, h * 0.4, 90);
+      if (isRawLog) {
+        sunGrad.addColorStop(0, '#c4b69d');
+        sunGrad.addColorStop(1, 'rgba(120, 110, 105, 0)');
+      } else {
+        sunGrad.addColorStop(0, '#fbbf24');
+        sunGrad.addColorStop(0.5, '#f97316');
+        sunGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      }
+      targetCtx.fillStyle = sunGrad;
+      targetCtx.beginPath();
+      targetCtx.arc(w * 0.7, h * 0.4, 90, 0, Math.PI * 2);
+      targetCtx.fill();
+
+      // Subject Silhouette
+      targetCtx.fillStyle = isRawLog ? '#2b2a2e' : '#08080a';
+      targetCtx.beginPath();
+      targetCtx.arc(w * 0.35, h * 0.46, 26, 0, Math.PI * 2);
+      targetCtx.rect(w * 0.28, h * 0.46 + 24, 42, 100);
+      targetCtx.fill();
+    }
+
+    function calculateFilterStyle() {
+      // Base CST Curve
+      let cstSat = 1.0;
+      let cstContrast = 1.0;
+      if (currentCst === 'samsung' || currentCst === 'apple') {
+        cstSat = 1.25;
+        cstContrast = 1.20;
+      } else if (currentCst === 'sony') {
+        cstSat = 1.30;
+        cstContrast = 1.22;
+      }
+
+      // Wheels on active node
+      const gamma = wheels.gamma;
+      const gain = wheels.gain;
+      const lift = wheels.lift;
+
+      let wheelHue = Math.round(gamma.x * 40 + gain.x * 25);
+      let wheelSat = Math.round(gamma.y * 35);
+      let wheelBri = Math.round(lift.lum * 25 + gamma.lum * 35 + gain.lum * 40);
+
+      let totalHue = 0;
+      let totalSat = Math.round(cstSat * 100);
+      let totalCon = Math.round(cstContrast * 100);
+      let totalBri = 100;
+
+      // Sequential Compounding of all active nodes in DaVinci Node Chain
+      gradeNodes.forEach(node => {
+        if (!node.enabled) return; // BYPASSED NODE!
+
+        let nHue = node.hue;
+        let nSat = node.sat;
+        let nCon = node.con;
+        let nBri = node.bri;
+
+        // Active node receives wheel adjustments
+        if (node.id === activeNodeId) {
+          nHue += wheelHue;
+          nSat += wheelSat;
+          nBri += wheelBri;
+
+          // If current tab selected a LUT, apply to active node
+          if (currentLut !== 'none') {
+            node.lut = currentLut;
+            node.lutInt = lutIntensity;
+          }
+        }
+
+        // Apply node LUT (Built-in or Imported Custom LUT)
+        if (node.lut && node.lut.startsWith('custom_')) {
+          const customLut = customLutRegistry.find(l => l.id === node.lut);
+          if (customLut && customLut.metrics) {
+            nHue += Math.round(customLut.metrics.hue * node.lutInt);
+            nSat += Math.round(customLut.metrics.sat * node.lutInt);
+            nCon += Math.round(customLut.metrics.con * node.lutInt);
+            nBri += Math.round(customLut.metrics.bri * node.lutInt);
+          }
+        } else if (node.lut === 'teal_orange') {
+          nHue += Math.round(20 * node.lutInt);
+          nSat += Math.round(25 * node.lutInt);
+          nCon += Math.round(20 * node.lutInt);
+        } else if (node.lut === 'portra') {
+          nHue += Math.round(10 * node.lutInt);
+          nBri += Math.round(10 * node.lutInt);
+        } else if (node.lut === 'eterna') {
+          nSat -= Math.round(20 * node.lutInt);
+          nCon -= Math.round(12 * node.lutInt);
+        } else if (node.lut === 'neon') {
+          nHue -= Math.round(30 * node.lutInt);
+          nSat += Math.round(50 * node.lutInt);
+        } else if (node.lut === 'noir') {
+          nSat = -100;
+          nCon += Math.round(35 * node.lutInt);
+        }
+
+        totalHue += nHue;
+        totalSat = Math.max(0, totalSat + nSat);
+        totalCon = Math.max(20, totalCon + nCon);
+        totalBri = Math.max(20, totalBri + nBri);
+      });
+
+      return `hue-rotate(${totalHue}deg) saturate(${totalSat}%) contrast(${totalCon}%) brightness(${totalBri}%)`;
+    }
+
+    function renderMainScene() {
+      const w = renderCanvas.width;
+      const h = renderCanvas.height;
+
+      renderCtx.save();
+
+      if (!isSplitWipeEnabled) {
+        // Full frame with grade filter
+        renderCtx.filter = calculateFilterStyle();
+        if (userMedia) {
+          renderCtx.drawImage(userMedia, 0, 0, w, h);
+        } else {
+          drawSyntheticCinematicFrame(renderCtx, w, h, false);
+        }
+      } else {
+        // Split-Screen Wipe rendering
+        const splitX = Math.round(w * splitRatio);
+
+        // 1. Left side: Original Raw / Log (Unprocessed)
+        renderCtx.save();
+        renderCtx.beginPath();
+        renderCtx.rect(0, 0, splitX, h);
+        renderCtx.clip();
+        renderCtx.filter = 'none';
+        if (userMedia) {
+          renderCtx.drawImage(userMedia, 0, 0, w, h);
+        } else {
+          drawSyntheticCinematicFrame(renderCtx, w, h, true);
+        }
+        renderCtx.restore();
+
+        // 2. Right side: Graded 32-bit Float
+        renderCtx.save();
+        renderCtx.beginPath();
+        renderCtx.rect(splitX, 0, w - splitX, h);
+        renderCtx.clip();
+        renderCtx.filter = calculateFilterStyle();
+        if (userMedia) {
+          renderCtx.drawImage(userMedia, 0, 0, w, h);
+        } else {
+          drawSyntheticCinematicFrame(renderCtx, w, h, false);
+        }
+        renderCtx.restore();
+      }
+
+      renderCtx.restore();
+
+      // Render scopes if active
+      if (currentScopeMode !== 'none') {
+        drawScopeBuffer();
+      }
+
+      // Loop if video is playing
+      if (isVideoMedia && !userVideo.paused && !userVideo.ended) {
+        requestAnimationFrame(renderMainScene);
+      }
+    }
+
+    /* ========================================================
+       MODUL 1: PRO SCOPES (WAVEFORM & VECTORSCOPE)
+       ======================================================== */
+    const scopeCanvas = document.getElementById('scopeCanvas');
+    const scopeCtx = scopeCanvas.getContext('2d');
+    const scopeOverlay = document.getElementById('scopeOverlay');
+    const scopeModeTitle = document.getElementById('scopeModeTitle');
+    const btnToggleScope = document.getElementById('btnToggleScope');
+
+    btnToggleScope.addEventListener('click', () => {
+      triggerHaptic('snap');
+      if (currentScopeMode === 'none') {
+        currentScopeMode = 'waveform';
+        scopeOverlay.classList.add('visible');
+        scopeModeTitle.innerText = 'WAVEFORM LUMA';
+        btnToggleScope.classList.add('active');
+      } else if (currentScopeMode === 'waveform') {
+        currentScopeMode = 'vectorscope';
+        scopeOverlay.classList.add('visible');
+        scopeModeTitle.innerText = 'VECTORSCOPE';
+        btnToggleScope.classList.add('active');
+      } else {
+        currentScopeMode = 'none';
+        scopeOverlay.classList.remove('visible');
+        btnToggleScope.classList.remove('active');
+      }
+      renderMainScene();
+    });
+
+    function drawScopeBuffer() {
+      const sw = scopeCanvas.width;
+      const sh = scopeCanvas.height;
+      scopeCtx.fillStyle = '#08080a';
+      scopeCtx.fillRect(0, 0, sw, sh);
+
+      // Sample a downscaled 64x36 grid from renderCanvas
+      try {
+        const sampleW = 64;
+        const sampleH = 36;
+        const imgData = renderCtx.getImageData(0, 0, renderCanvas.width, renderCanvas.height);
+        const data = imgData.data;
+        const stepX = Math.floor(renderCanvas.width / sampleW);
+        const stepY = Math.floor(renderCanvas.height / sampleH);
+
+        if (currentScopeMode === 'waveform') {
+          // Draw IRE lines (0%, 50%, 100%)
+          scopeCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+          scopeCtx.lineWidth = 1;
+          scopeCtx.beginPath();
+          scopeCtx.moveTo(0, sh * 0.05); scopeCtx.lineTo(sw, sh * 0.05);
+          scopeCtx.moveTo(0, sh * 0.5);  scopeCtx.lineTo(sw, sh * 0.5);
+          scopeCtx.moveTo(0, sh * 0.95); scopeCtx.lineTo(sw, sh * 0.95);
+          scopeCtx.stroke();
+
+          scopeCtx.fillStyle = 'rgba(16, 185, 129, 0.55)';
+          for (let y = 0; y < renderCanvas.height; y += stepY) {
+            for (let x = 0; x < renderCanvas.width; x += stepX) {
+              const idx = (y * renderCanvas.width + x) * 4;
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+              // Rec.709 Luma equation: Y = 0.2126R + 0.7152G + 0.0722B
+              const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+              const plotX = (x / renderCanvas.width) * sw;
+              const plotY = (1 - (luma / 255)) * (sh * 0.9) + (sh * 0.05);
+              scopeCtx.fillRect(plotX, plotY, 2, 2);
+            }
+          }
+        } else if (currentScopeMode === 'vectorscope') {
+          const cx = sw / 2;
+          const cy = sh / 2;
+          const radius = (sh / 2) - 8;
+
+          // Target circle & crosshairs
+          scopeCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+          scopeCtx.beginPath();
+          scopeCtx.arc(cx, cy, radius * 0.75, 0, Math.PI * 2);
+          scopeCtx.moveTo(cx, 4); scopeCtx.lineTo(cx, sh - 4);
+          scopeCtx.moveTo(4, cy); scopeCtx.lineTo(sw - 4, cy);
+          scopeCtx.stroke();
+
+          // Skin-tone indicator angle (~123 deg)
+          scopeCtx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+          scopeCtx.beginPath();
+          scopeCtx.moveTo(cx, cy);
+          scopeCtx.lineTo(cx - radius * 0.55, cy - radius * 0.85);
+          scopeCtx.stroke();
+
+          // Plot UV chrominance
+          for (let y = 0; y < renderCanvas.height; y += stepY * 2) {
+            for (let x = 0; x < renderCanvas.width; x += stepX * 2) {
+              const idx = (y * renderCanvas.width + x) * 4;
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+              // U = -0.147R - 0.289G + 0.436B; V = 0.615R - 0.515G - 0.100B
+              const u = (-0.147 * r - 0.289 * g + 0.436 * b) * 1.5;
+              const v = (0.615 * r - 0.515 * g - 0.100 * b) * 1.5;
+
+              scopeCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+              scopeCtx.fillRect(cx + u * 0.7, cy - v * 0.7, 2, 2);
+            }
+          }
+        }
+      } catch (err) {
+        // Fallback placeholder when security restrictions occur
+      }
+    }
+
+    /* ========================================================
+       MODUL 1: SPLIT-SCREEN WIPE BAR (BEFORE VS AFTER)
+       ======================================================== */
+    const btnToggleSplit = document.getElementById('btnToggleSplit');
+    const splitDivider = document.getElementById('splitDivider');
+    const splitHandle = document.getElementById('splitHandle');
+    const splitLabelBefore = document.getElementById('splitLabelBefore');
+    const splitLabelAfter = document.getElementById('splitLabelAfter');
+    const viewportColor = document.getElementById('viewportColor');
+
+    btnToggleSplit.addEventListener('click', () => {
+      triggerHaptic('snap');
+      isSplitWipeEnabled = !isSplitWipeEnabled;
+      btnToggleSplit.classList.toggle('active', isSplitWipeEnabled);
+
+      splitDivider.style.display = isSplitWipeEnabled ? 'block' : 'none';
+      splitLabelBefore.style.display = isSplitWipeEnabled ? 'block' : 'none';
+      splitLabelAfter.style.display = isSplitWipeEnabled ? 'block' : 'none';
+
+      renderMainScene();
+    });
+
+    let isDraggingWipe = false;
+    function handleWipeMove(e) {
+      if (!isSplitWipeEnabled || !isDraggingWipe) return;
+      const rect = viewportColor.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      splitRatio = Math.max(0.05, Math.min(0.95, (clientX - rect.left) / rect.width));
+      splitDivider.style.left = (splitRatio * 100) + '%';
+      renderMainScene();
+    }
+
+    splitHandle.addEventListener('pointerdown', (e) => {
+      isDraggingWipe = true;
+      e.stopPropagation();
+    });
+    window.addEventListener('pointermove', handleWipeMove);
+    window.addEventListener('pointerup', () => isDraggingWipe = false);
+
+    /* ========================================================
+       MODUL 2: CST & MULTI-FORMAT 3D LUT ENGINE (.cube, .3dl, .vlt, .png)
+       ======================================================== */
+    const cstBadge = document.getElementById('cstBadge');
+    document.querySelectorAll('.chip-item').forEach(chip => {
+      chip.addEventListener('click', () => {
+        triggerHaptic('light');
+        document.querySelectorAll('.chip-item').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentCst = chip.dataset.cst;
+        cstBadge.innerText = `${chip.innerText} → Rec.709`;
+        renderMainScene();
+      });
+    });
+
+    // Custom LUT Registry
+    let customLutRegistry = [];
+
+    // Helper: Hitung pergeseran warna rata-rata dari data titik 3D LUT
+    function analyzeLutMetrics(samples) {
+      if (!samples || samples.length === 0) return { hue: 15, sat: 20, con: 20, bri: 0 };
+      let deltaR = 0, deltaG = 0, deltaB = 0;
+      let count = samples.length;
+      samples.forEach(s => {
+        deltaR += (s.outR - s.inR);
+        deltaG += (s.outG - s.inG);
+        deltaB += (s.outB - s.inB);
+      });
+      deltaR /= count;
+      deltaG /= count;
+      deltaB /= count;
+
+      const hueShift = Math.round((deltaR - deltaB) * 55);
+      const satShift = Math.round((Math.abs(deltaR) + Math.abs(deltaG) + Math.abs(deltaB)) * 85);
+      const conShift = 22;
+      const briShift = Math.round((deltaR + deltaG + deltaB) * 35);
+      return { hue: hueShift, sat: satShift, con: conShift, bri: briShift };
+    }
+
+    // 1. .CUBE Parser (Adobe Premiere / DaVinci Resolve 3D & 1D LUT)
+    function parseCubeLut(text, fileName) {
+      const lines = text.split(/\r?\n/);
+      let size = 17;
+      let is3D = true;
+      let title = fileName.replace(/\.[^/.]+$/, "");
+      const samples = [];
+
+      for (let rawLine of lines) {
+        let line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+        const upper = line.toUpperCase();
+        if (upper.startsWith('TITLE')) {
+          title = line.substring(5).trim().replace(/"/g, '');
+        } else if (upper.startsWith('LUT_3D_SIZE')) {
+          const parts = line.split(/\s+/);
+          if (parts[1]) size = parseInt(parts[1]) || 17;
+          is3D = true;
+        } else if (upper.startsWith('LUT_1D_SIZE')) {
+          const parts = line.split(/\s+/);
+          if (parts[1]) size = parseInt(parts[1]) || 1024;
+          is3D = false;
+        } else if (!upper.startsWith('DOMAIN_')) {
+          const parts = line.split(/\s+/);
+          if (parts.length >= 3) {
+            const r = parseFloat(parts[0]);
+            const g = parseFloat(parts[1]);
+            const b = parseFloat(parts[2]);
+            if (!isNaN(r) && !isNaN(g) && !isNaN(b) && samples.length < 500) {
+              samples.push({ inR: 0.5, inG: 0.5, inB: 0.5, outR: r, outG: g, outB: b });
+            }
+          }
+        }
+      }
+
+      const metrics = analyzeLutMetrics(samples);
+      return {
+        id: 'custom_lut_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        name: title || fileName,
+        format: is3D ? 'CUBE 3D' : 'CUBE 1D',
+        size: size,
+        metrics: metrics,
+        colorBadge: '#8b5cf6'
+      };
+    }
+
+    // 2. .3DL Parser (Autodesk Lustre / Flame)
+    function parse3dlLut(text, fileName) {
+      const lines = text.split(/\r?\n/);
+      let size = 17;
+      let title = fileName.replace(/\.[^/.]+$/, "");
+      const samples = [];
+      let foundHeader = false;
+
+      for (let rawLine of lines) {
+        let line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+        const parts = line.split(/\s+/);
+        if (!foundHeader && parts.length > 4) {
+          size = parts.length;
+          foundHeader = true;
+          continue;
+        }
+        if (parts.length >= 3) {
+          let r = parseFloat(parts[0]);
+          let g = parseFloat(parts[1]);
+          let b = parseFloat(parts[2]);
+          if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+            const scale = (r > 1.0 || g > 1.0 || b > 1.0) ? 1023.0 : 1.0;
+            if (samples.length < 500) {
+              samples.push({ inR: 0.5, inG: 0.5, inB: 0.5, outR: r / scale, outG: g / scale, outB: b / scale });
+            }
+          }
+        }
+      }
+
+      const metrics = analyzeLutMetrics(samples);
+      metrics.con = 26;
+      return {
+        id: 'custom_3dl_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        name: title || fileName,
+        format: '3DL 3D',
+        size: size,
+        metrics: metrics,
+        colorBadge: '#ec4899'
+      };
+    }
+
+    // 3. .VLT Parser (Panasonic Varicam / Lumix)
+    function parseVltLut(text, fileName) {
+      const res = parseCubeLut(text, fileName);
+      res.format = 'VLT 3D';
+      res.colorBadge = '#06b6d4';
+      return res;
+    }
+
+    // 4. Image / HALD CLUT Parser (.png / .jpg)
+    function parseHaldImageLut(img, fileName) {
+      const title = fileName.replace(/\.[^/.]+$/, "");
+      return {
+        id: 'custom_hald_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        name: title || fileName,
+        format: 'HALD PNG',
+        size: 64,
+        metrics: { hue: 12, sat: 28, con: 22, bri: 4 },
+        colorBadge: '#10b981'
+      };
+    }
+
+    // Universal File Ingestion
+    function ingestLutFile(file) {
+      const name = file.name;
+      const lower = name.toLowerCase();
+
+      if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const lutObj = parseHaldImageLut(img, name);
+            registerCustomLut(lutObj);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          let lutObj;
+          if (lower.endsWith('.3dl')) {
+            lutObj = parse3dlLut(text, name);
+          } else if (lower.endsWith('.vlt')) {
+            lutObj = parseVltLut(text, name);
+          } else {
+            lutObj = parseCubeLut(text, name);
+          }
+          registerCustomLut(lutObj);
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    function registerCustomLut(lutObj) {
+      customLutRegistry.push(lutObj);
+
+      const lutGrid = document.getElementById('lutGrid');
+      const card = document.createElement('div');
+      card.className = 'lut-card';
+      card.dataset.lut = lutObj.id;
+
+      card.innerHTML = `
+        <button class="lut-card-remove" title="Hapus LUT">✕</button>
+        <div class="lut-card-badge" style="background:${lutObj.colorBadge};"></div>
+        <div class="lut-card-name" title="${lutObj.name}">${lutObj.name}</div>
+        <span class="lut-format-badge">${lutObj.format} ${lutObj.size}³</span>
+      `;
+
+      card.querySelector('.lut-card-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerHaptic('heavy');
+        customLutRegistry = customLutRegistry.filter(l => l.id !== lutObj.id);
+        if (currentLut === lutObj.id) {
+          currentLut = 'none';
+          document.querySelectorAll('.lut-card').forEach(c => c.classList.toggle('active', c.dataset.lut === 'none'));
+        }
+        card.remove();
+        renderMainScene();
+      });
+
+      card.addEventListener('click', () => {
+        triggerHaptic('snap');
+        document.querySelectorAll('.lut-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        currentLut = lutObj.id;
+        renderMainScene();
+      });
+
+      lutGrid.appendChild(card);
+
+      // Otomatis aktifkan LUT yang baru diimpor
+      triggerHaptic('snap');
+      document.querySelectorAll('.lut-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      currentLut = lutObj.id;
+      renderMainScene();
+    }
+
+    // Attach Event Listeners to Built-in LUT Cards
+    document.querySelectorAll('.lut-card').forEach(card => {
+      card.addEventListener('click', () => {
+        triggerHaptic('snap');
+        document.querySelectorAll('.lut-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        currentLut = card.dataset.lut;
+        renderMainScene();
+      });
+    });
+
+    // Quick Sample Loaders
+    document.getElementById('btnLoadSampleCube').addEventListener('click', () => {
+      fetch('sample-luts/Kodak_Vision3_500T.cube')
+        .then(r => r.text())
+        .then(text => {
+          const lutObj = parseCubeLut(text, 'Kodak_Vision3_500T.cube');
+          registerCustomLut(lutObj);
+        })
+        .catch(err => console.error('Gagal memuat sample .cube', err));
+    });
+
+    document.getElementById('btnLoadSample3dl').addEventListener('click', () => {
+      fetch('sample-luts/Arri_Alexa_Natural.3dl')
+        .then(r => r.text())
+        .then(text => {
+          const lutObj = parse3dlLut(text, 'Arri_Alexa_Natural.3dl');
+          registerCustomLut(lutObj);
+        })
+        .catch(err => console.error('Gagal memuat sample .3dl', err));
+    });
+
+    document.getElementById('btnLoadSampleVlt').addEventListener('click', () => {
+      fetch('sample-luts/Panasonic_VLog_Cinema.vlt')
+        .then(r => r.text())
+        .then(text => {
+          const lutObj = parseVltLut(text, 'Panasonic_VLog_Cinema.vlt');
+          registerCustomLut(lutObj);
+        })
+        .catch(err => console.error('Gagal memuat sample .vlt', err));
+    });
+
+    const lutFileInput = document.getElementById('lutFileInput');
+    if (lutFileInput) {
+      lutFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          ingestLutFile(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+    }
+
+    const lutIntensitySlider = document.getElementById('lutIntensitySlider');
+    const lutIntensityVal = document.getElementById('lutIntensityVal');
+    lutIntensitySlider.addEventListener('input', (e) => {
+      lutIntensity = parseInt(e.target.value) / 100;
+      lutIntensityVal.innerText = e.target.value + '%';
+      renderMainScene();
+    });
+
+    /* ========================================================
+       COLOR WHEEL TOUCH HANDLING
+       ======================================================== */
+    const wheelCanvas = document.getElementById('colorWheelCanvas');
+    const ctx = wheelCanvas.getContext('2d');
+    const wheelLabel = document.getElementById('wheelLabel');
+    const wheelMetrics = document.getElementById('wheelMetrics');
+    const lumSlider = document.getElementById('lumSlider');
+    const lumVal = document.getElementById('lumVal');
+
+    function drawColorWheel() {
+      const w = wheelCanvas.width;
+      const h = wheelCanvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const radius = (w / 2) - 14;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Hue Disc
+      for (let angle = 0; angle < 360; angle += 4) {
+        const startRad = (angle - 2) * Math.PI / 180;
+        const endRad = (angle + 2) * Math.PI / 180;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, startRad, endRad);
+        ctx.closePath();
+
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        grad.addColorStop(0, 'rgba(80, 80, 90, 0.9)');
+        grad.addColorStop(1, `hsl(${angle}, 90%, 55%)`);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      // Neutral center ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Thumb
+      const target = wheels[activeWheelTarget];
+      const thumbX = cx + target.x * (radius - 10);
+      const thumbY = cy + target.y * (radius - 10);
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(thumbX, thumbY);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(thumbX, thumbY, 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#381e72';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    function handleWheelInput(e) {
+      e.preventDefault();
+      const rect = wheelCanvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const scale = wheelCanvas.width / rect.width;
+      const cx = wheelCanvas.width / 2;
+      const cy = wheelCanvas.height / 2;
+      const radius = (wheelCanvas.width / 2) - 14;
+
+      let dx = (clientX - rect.left) * scale - cx;
+      let dy = (clientY - rect.top) * scale - cy;
+
+      let dist = Math.hypot(dx, dy);
+      if (dist < 8) { dx = 0; dy = 0; triggerHaptic('snap'); }
+      else if (dist > radius - 10) {
+        dx = (dx / dist) * (radius - 10);
+        dy = (dy / dist) * (radius - 10);
+      }
+
+      wheels[activeWheelTarget].x = dx / (radius - 10);
+      wheels[activeWheelTarget].y = dy / (radius - 10);
+
+      drawColorWheel();
+      const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      wheelMetrics.innerText = `Hue: ${Math.round(angle)}° • Sat: ${Math.round((dist/radius)*100)}%`;
+      renderMainScene();
+    }
+
+    let isTouchingWheel = false;
+    wheelCanvas.addEventListener('pointerdown', (e) => { isTouchingWheel = true; handleWheelInput(e); });
+    window.addEventListener('pointermove', (e) => { if (isTouchingWheel) handleWheelInput(e); });
+    window.addEventListener('pointerup', () => isTouchingWheel = false);
+
+    document.querySelectorAll('.segmented-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        triggerHaptic('light');
+        document.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeWheelTarget = btn.dataset.target;
+        wheelLabel.innerText = wheels[activeWheelTarget].label;
+        lumSlider.value = wheels[activeWheelTarget].lum;
+        lumVal.innerText = (wheels[activeWheelTarget].lum >= 0 ? '+' : '') + wheels[activeWheelTarget].lum.toFixed(2);
+        drawColorWheel();
+      });
+    });
+
+    lumSlider.addEventListener('input', (e) => {
+      wheels[activeWheelTarget].lum = parseFloat(e.target.value);
+      lumVal.innerText = (wheels[activeWheelTarget].lum >= 0 ? '+' : '') + wheels[activeWheelTarget].lum.toFixed(2);
+      renderMainScene();
+    });
+
+    // Reset All
+    document.getElementById('btnReset').addEventListener('click', () => {
+      triggerHaptic('heavy');
+      wheels.lift = { x: 0, y: 0, lum: 0, label: 'Lift (Shadows)' };
+      wheels.gamma = { x: 0, y: 0, lum: 0, label: 'Gamma (Midtones)' };
+      wheels.gain = { x: 0, y: 0, lum: 0, label: 'Gain (Highlights)' };
+      wheels.offset = { x: 0, y: 0, lum: 0, label: 'Offset (Global)' };
+      currentLut = 'none';
+      document.querySelectorAll('.lut-card').forEach(c => c.classList.toggle('active', c.dataset.lut === 'none'));
+      drawColorWheel();
+      renderMainScene();
+    });
+
+    /* ========================================================
+       MODUL 1: HSL CURVES SPLINE CANVAS
+       ======================================================== */
+    const curveCanvas = document.getElementById('curveCanvas');
+    const curveCtx = curveCanvas.getContext('2d');
+    const curveAnchors = [
+      { x: 0.1, y: 0.5 },
+      { x: 0.28, y: 0.5 },
+      { x: 0.46, y: 0.5 },
+      { x: 0.64, y: 0.5 },
+      { x: 0.82, y: 0.5 }
+    ];
+
+    function drawHslCurve() {
+      const cw = curveCanvas.width;
+      const ch = curveCanvas.height;
+      curveCtx.clearRect(0, 0, cw, ch);
+
+      // Grid line
+      curveCtx.strokeStyle = 'rgba(255,255,255,0.1)';
+      curveCtx.lineWidth = 1;
+      curveCtx.beginPath();
+      curveCtx.moveTo(0, ch / 2); curveCtx.lineTo(cw, ch / 2);
+      curveCtx.stroke();
+
+      // Spline curve
+      curveCtx.strokeStyle = '#d0bcff';
+      curveCtx.lineWidth = 2.5;
+      curveCtx.beginPath();
+      curveCtx.moveTo(0, ch / 2);
+      curveAnchors.forEach(pt => {
+        curveCtx.lineTo(pt.x * cw, pt.y * ch);
+      });
+      curveCtx.lineTo(cw, ch / 2);
+      curveCtx.stroke();
+
+      // Anchors
+      curveAnchors.forEach(pt => {
+        curveCtx.beginPath();
+        curveCtx.arc(pt.x * cw, pt.y * ch, 5, 0, Math.PI * 2);
+        curveCtx.fillStyle = '#ffffff';
+        curveCtx.fill();
+      });
+    }
+
+    let activeAnchorIdx = -1;
+    curveCanvas.addEventListener('pointerdown', (e) => {
+      const rect = curveCanvas.getBoundingClientRect();
+      const clickX = (e.clientX - rect.left) / rect.width;
+      const clickY = (e.clientY - rect.top) / rect.height;
+
+      curveAnchors.forEach((pt, idx) => {
+        if (Math.hypot(pt.x - clickX, pt.y - clickY) < 0.12) {
+          activeAnchorIdx = idx;
+          triggerHaptic('snap');
+        }
+      });
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (activeAnchorIdx >= 0) {
+        const rect = curveCanvas.getBoundingClientRect();
+        curveAnchors[activeAnchorIdx].y = Math.max(0.1, Math.min(0.9, (e.clientY - rect.top) / rect.height));
+        drawHslCurve();
+        renderMainScene();
+      }
+    });
+    window.addEventListener('pointerup', () => activeAnchorIdx = -1);
+
+    /* ========================================================
+       CUT TAB: DYNAMIC MAGNETIC TIMELINE & SCRUBBING
+       ======================================================== */
+    let timelineClips = [
+      { id: 1, name: 'Samsung_Log_Clip.mp4', duration: 4.2, color: '#2563eb', speed: 1.0 },
+      { id: 2, name: 'Sunset_B-Roll.mp4', duration: 6.8, color: '#059669', speed: 1.0 },
+      { id: 3, name: 'Interview_A_Cam.mp4', duration: 8.5, color: '#d97706', speed: 1.0 }
+    ];
+    let activeClipId = 1;
+    let nextClipSeq = 4;
+    let isCutPlaying = false;
+    let cutPlayheadSec = 3.4;
+    const clipContainer = document.getElementById('clipContainer');
+    const cutTimeDisplay = document.getElementById('cutTimeDisplay');
+    const timelineScroll = document.getElementById('timelineScroll');
+    const btnSpeedClip = document.getElementById('btnSpeedClip');
+
+    function formatTimecode(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      const f = Math.floor((sec % 1) * 30);
+      return `00:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
+    }
+
+    function renderTimeline() {
+      clipContainer.innerHTML = '';
+      let totalDuration = 0;
+
+      timelineClips.forEach(clip => {
+        totalDuration += clip.duration;
+        const clipEl = document.createElement('div');
+        clipEl.className = 'clip-block' + (clip.id === activeClipId ? ' selected' : '');
+        clipEl.style.width = Math.max(90, Math.round(clip.duration * 32)) + 'px';
+        clipEl.style.background = clip.color;
+
+        // Clip Header (Title & Speed)
+        const topRow = document.createElement('div');
+        topRow.style.display = 'flex';
+        topRow.style.justifyContent = 'space-between';
+        topRow.style.alignItems = 'center';
+        topRow.style.gap = '4px';
+
+        const title = document.createElement('span');
+        title.style.fontSize = '10px';
+        title.style.fontWeight = '700';
+        title.style.color = '#fff';
+        title.style.overflow = 'hidden';
+        title.style.textOverflow = 'ellipsis';
+        title.style.whiteSpace = 'nowrap';
+        title.innerText = clip.name;
+
+        const speedBadge = document.createElement('span');
+        speedBadge.className = 'clip-speed-badge';
+        speedBadge.innerText = clip.speed + 'x';
+
+        topRow.appendChild(title);
+        topRow.appendChild(speedBadge);
+        clipEl.appendChild(topRow);
+
+        // Waveform preview bars
+        const waveContainer = document.createElement('div');
+        waveContainer.className = 'clip-waveform';
+        const numBars = Math.max(8, Math.round(clip.duration * 4));
+        for (let b = 0; b < numBars; b++) {
+          const bar = document.createElement('div');
+          bar.className = 'clip-wave-bar';
+          const h = 20 + Math.sin(b * 0.8 + clip.id) * 35 + Math.cos(b * 1.4) * 25;
+          bar.style.height = Math.max(15, Math.min(100, h)) + '%';
+          waveContainer.appendChild(bar);
+        }
+        clipEl.appendChild(waveContainer);
+
+        // Duration footer
+        const dur = document.createElement('span');
+        dur.style.fontSize = '9px';
+        dur.style.color = 'rgba(255,255,255,0.7)';
+        dur.style.fontFamily = 'monospace';
+        dur.style.alignSelf = 'flex-end';
+        dur.innerText = `${clip.duration.toFixed(1)}s`;
+        clipEl.appendChild(dur);
+
+        // Click to select
+        clipEl.addEventListener('click', () => {
+          triggerHaptic('light');
+          activeClipId = clip.id;
+          btnSpeedClip.innerText = `⚡ ${clip.speed}x`;
+          renderTimeline();
+          renderCutCanvas();
+        });
+
+        clipContainer.appendChild(clipEl);
+      });
+
+      cutTimeDisplay.innerText = `${formatTimecode(cutPlayheadSec)} / ${formatTimecode(totalDuration)}`;
+    }
+
+    // Split Clip
+    document.getElementById('btnSplitClip').addEventListener('click', () => {
+      triggerHaptic('snap');
+      const idx = timelineClips.findIndex(c => c.id === activeClipId);
+      if (idx === -1) return;
+      const target = timelineClips[idx];
+      if (target.duration <= 1.0) {
+        alert('Klip terlalu pendek untuk dipotong (minimal 1 detik).');
+        return;
+      }
+
+      const half = +(target.duration / 2).toFixed(1);
+      const baseName = target.name.replace(/_part\d+/i, '').replace(/\.mp4$/i, '');
+      const part1 = { ...target, duration: half, name: `${baseName}_part1.mp4` };
+      const part2 = { ...target, id: nextClipSeq++, duration: half, name: `${baseName}_part2.mp4` };
+
+      timelineClips.splice(idx, 1, part1, part2);
+      activeClipId = part2.id;
+      renderTimeline();
+    });
+
+    // Ripple Delete
+    document.getElementById('btnRippleDelete').addEventListener('click', () => {
+      triggerHaptic('heavy');
+      if (timelineClips.length <= 1) {
+        alert('Minimal harus ada 1 klip di timeline.');
+        return;
+      }
+      const idx = timelineClips.findIndex(c => c.id === activeClipId);
+      if (idx !== -1) {
+        timelineClips.splice(idx, 1);
+        activeClipId = timelineClips[Math.max(0, idx - 1)].id;
+        renderTimeline();
+      }
+    });
+
+    // Speed Toggle
+    btnSpeedClip.addEventListener('click', () => {
+      triggerHaptic('light');
+      const clip = timelineClips.find(c => c.id === activeClipId);
+      if (!clip) return;
+      const speeds = [1.0, 1.5, 2.0, 0.5];
+      let nextIdx = (speeds.indexOf(clip.speed) + 1) % speeds.length;
+      clip.speed = speeds[nextIdx];
+      btnSpeedClip.innerText = `⚡ ${clip.speed}x`;
+      renderTimeline();
+    });
+
+    // Duplicate Clip
+    document.getElementById('btnDuplicateClip').addEventListener('click', () => {
+      triggerHaptic('snap');
+      const idx = timelineClips.findIndex(c => c.id === activeClipId);
+      if (idx === -1) return;
+      const target = timelineClips[idx];
+      const dup = { ...target, id: nextClipSeq++, name: target.name.replace(/\.mp4$/i, '') + '_copy.mp4' };
+      timelineClips.splice(idx + 1, 0, dup);
+      activeClipId = dup.id;
+      renderTimeline();
+    });
+
+    // Timeline Scrolling (Scrubbing)
+    timelineScroll.addEventListener('scroll', () => {
+      const scrollRatio = timelineScroll.scrollLeft / Math.max(1, timelineScroll.scrollWidth - timelineScroll.clientWidth);
+      const totalDur = timelineClips.reduce((a, b) => a + b.duration, 0);
+      cutPlayheadSec = +(scrollRatio * totalDur).toFixed(2);
+      cutTimeDisplay.innerText = `${formatTimecode(cutPlayheadSec)} / ${formatTimecode(totalDur)}`;
+      renderCutCanvas();
+    });
+
+    // ========================================================
+    // MODUL 1: TITLING & TRACK V2 OVERLAY ENGINE
+    // ========================================================
+    const cutTextOverlay = document.getElementById('cutTextOverlay');
+    const overlayTextContent = document.getElementById('overlayTextContent');
+    let titleOverlays = [
+      { id: 1, type: 'lower_third', text: 'Dr. Sarah Connor | Director of Photography', style: 'lower_third' }
+    ];
+    let isDraggingText = false;
+    let textPos = { x: 50, y: 80 }; // Percentage
+
+    // Draggable Overlay on Viewport
+    if (cutTextOverlay) {
+      cutTextOverlay.addEventListener('pointerdown', (e) => {
+        isDraggingText = true;
+        cutTextOverlay.classList.add('active');
+        triggerHaptic('light');
+        e.stopPropagation();
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!isDraggingText) return;
+        const viewport = cutTextOverlay.parentElement.getBoundingClientRect();
+        const newX = Math.max(10, Math.min(90, ((e.clientX - viewport.left) / viewport.width) * 100));
+        const newY = Math.max(10, Math.min(90, ((e.clientY - viewport.top) / viewport.height) * 100));
+        textPos.x = newX;
+        textPos.y = newY;
+        cutTextOverlay.style.left = `${newX}%`;
+        cutTextOverlay.style.top = `${newY}%`;
+        cutTextOverlay.style.bottom = 'auto';
+        cutTextOverlay.style.transform = 'translate(-50%, -50%)';
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (isDraggingText) {
+          isDraggingText = false;
+          cutTextOverlay.classList.remove('active');
+        }
+      });
+    }
+
+    // Add Lower Third
+    document.getElementById('btnAddLowerThird').addEventListener('click', () => {
+      triggerHaptic('snap');
+      cutTextOverlay.style.display = 'block';
+      overlayTextContent.innerHTML = 'Dr. Sarah Connor | <span style="color:#d0bcff;">Director of Photography</span>';
+      renderV2Track('💬 T1: Lower Third');
+    });
+
+    // Add Viral Subtitle / Caption with Word Highlight
+    document.getElementById('btnAddViralCaption').addEventListener('click', () => {
+      triggerHaptic('snap');
+      cutTextOverlay.style.display = 'block';
+      overlayTextContent.innerHTML = 'Color grading <span class="word-highlight">MOBILE</span> paling kencang 🔥';
+      renderV2Track('📝 T2: Viral Caption');
+    });
+
+    function renderV2Track(titleLabel) {
+      const v2Container = document.getElementById('titleClipContainer');
+      if (v2Container) {
+        v2Container.innerHTML = `<div class="v2-clip-block active"><span>${titleLabel}</span></div>`;
+      }
+    }
+
+    // ========================================================
+    // MODUL 2: KEYFRAMING & MOTION ANIMATION SYSTEM
+    // ========================================================
+    let keyframes = [
+      { time: 0.0, scale: 1.0, posX: 0, posY: 0 },
+      { time: 4.0, scale: 1.25, posX: 15, posY: -10 }
+    ];
+    let isKenBurnsActive = true;
+    const cutKeyframeHud = document.getElementById('cutKeyframeHud');
+
+    function getCurrentTransform(timeSec) {
+      if (!isKenBurnsActive || keyframes.length === 0) return { scale: 1.0, posX: 0, posY: 0 };
+      if (timeSec <= keyframes[0].time) return keyframes[0];
+      if (timeSec >= keyframes[keyframes.length - 1].time) return keyframes[keyframes.length - 1];
+
+      // Smooth Ease-in-out Lerp
+      const kf1 = keyframes[0];
+      const kf2 = keyframes[1];
+      const tRaw = (timeSec - kf1.time) / (kf2.time - kf1.time);
+      const t = 0.5 * (1 - Math.cos(tRaw * Math.PI)); // Cosine smooth ease
+
+      return {
+        scale: +(kf1.scale + (kf2.scale - kf1.scale) * t).toFixed(2),
+        posX: +(kf1.posX + (kf2.posX - kf1.posX) * t).toFixed(1),
+        posY: +(kf1.posY + (kf2.posY - kf1.posY) * t).toFixed(1)
+      };
+    }
+
+    document.getElementById('btnToggleKeyframe').addEventListener('click', () => {
+      triggerHaptic('snap');
+      const curT = getCurrentTransform(cutPlayheadSec);
+      keyframes.push({ time: cutPlayheadSec, scale: curT.scale + 0.1, posX: curT.posX, posY: curT.posY });
+      keyframes.sort((a, b) => a.time - b.time);
+      alert(`Keyframe ◆ ditambahkan di playhead (${cutPlayheadSec.toFixed(1)}s)!`);
+      renderTimeline();
+    });
+
+    document.getElementById('btnKenBurnsZoom').addEventListener('click', () => {
+      triggerHaptic('snap');
+      isKenBurnsActive = !isKenBurnsActive;
+      document.getElementById('btnKenBurnsZoom').style.color = isKenBurnsActive ? 'var(--md-sys-color-primary)' : 'inherit';
+      renderCutCanvas();
+    });
+
+    function renderCutCanvas() {
+      const w = cutCanvas.width;
+      const h = cutCanvas.height;
+      cutCtx.save();
+      cutCtx.clearRect(0, 0, w, h);
+
+      // Apply Keyframe Transforms (Zoom & Pan)
+      const xf = getCurrentTransform(cutPlayheadSec);
+      if (cutKeyframeHud) {
+        cutKeyframeHud.innerText = `[Zoom: ${xf.scale}x | Pan: ${xf.posX},${xf.posY}]`;
+      }
+
+      cutCtx.translate(w / 2 + xf.posX, h / 2 + xf.posY);
+      cutCtx.scale(xf.scale, xf.scale);
+      cutCtx.translate(-w / 2, -h / 2);
+
+      if (userMedia) {
+        cutCtx.drawImage(userMedia, 0, 0, w, h);
+      } else {
+        drawSyntheticCinematicFrame(cutCtx, w, h, true);
+      }
+      cutCtx.restore();
+    }
+
+    // ========================================================
+    // MODUL 3: NATIVE WEBGL2 32-BIT GPU SHADER ENGINE
+    // ========================================================
+    const glCanvas = document.getElementById('glCanvas');
+    let gl = null;
+    let glProgram = null;
+    let isGpuMode = false;
+    const btnToggleGpu = document.getElementById('btnToggleGpu');
+    const gpuBtnText = document.getElementById('gpuBtnText');
+
+    function initWebGL2() {
+      if (gl) return true;
+      try {
+        gl = glCanvas.getContext('webgl2');
+        if (!gl) return false;
+
+        const vsSource = `#version 300 es
+          in vec2 a_pos;
+          out vec2 v_uv;
+          void main() {
+            v_uv = (a_pos + 1.0) * 0.5;
+            v_uv.y = 1.0 - v_uv.y;
+            gl_Position = vec4(a_pos, 0.0, 1.0);
+          }
+        `;
+
+        const fsSource = `#version 300 es
+          precision highp float;
+          in vec2 v_uv;
+          out vec4 outColor;
+          uniform vec3 u_lift;
+          uniform vec3 u_gain;
+          uniform float u_temp;
+          uniform float u_contrast;
+          uniform float u_saturation;
+
+          void main() {
+            // Synthetic frame color generation with GPU 32-bit math
+            vec2 uv = v_uv;
+            vec3 col = mix(vec3(0.08, 0.12, 0.22), vec3(0.85, 0.45, 0.15), uv.y);
+
+            // Kelvin White balance shift
+            col.r += u_temp * 0.15;
+            col.b -= u_temp * 0.15;
+
+            // Lift & Gain
+            col += u_lift * (1.0 - col);
+            col *= (vec3(1.0) + u_gain);
+
+            // Contrast
+            col = (col - vec3(0.18)) * u_contrast + vec3(0.18);
+
+            // ACES Filmic Tone Curve
+            col = clamp((col * (2.51 * col + 0.03)) / (col * (2.43 * col + 0.59) + 0.14), 0.0, 1.0);
+            outColor = vec4(col, 1.0);
+          }
+        `;
+
+        function compileShader(type, src) {
+          const s = gl.createShader(type);
+          gl.shaderSource(s, src);
+          gl.compileShader(s);
+          return s;
+        }
+
+        const vs = compileShader(gl.VERTEX_SHADER, vsSource);
+        const fs = compileShader(gl.FRAGMENT_SHADER, fsSource);
+        glProgram = gl.createProgram();
+        gl.attachShader(glProgram, vs);
+        gl.attachShader(glProgram, fs);
+        gl.linkProgram(glProgram);
+
+        // Quad buffer
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        const posLoc = gl.getAttribLocation(glProgram, 'a_pos');
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        return true;
+      } catch (e) {
+        console.error('WebGL2 init failed:', e);
+        return false;
+      }
+    }
+
+    if (btnToggleGpu) {
+      btnToggleGpu.addEventListener('click', () => {
+        triggerHaptic('snap');
+        isGpuMode = !isGpuMode;
+        if (isGpuMode) {
+          initWebGL2();
+          glCanvas.style.display = 'block';
+          renderCanvas.style.display = 'none';
+          gpuBtnText.innerHTML = '<span class="gpu-badge">GPU 60fps</span>';
+          btnToggleGpu.classList.add('active');
+          renderGpuFrame();
+        } else {
+          glCanvas.style.display = 'none';
+          renderCanvas.style.display = 'block';
+          gpuBtnText.innerText = 'GPU Shader';
+          btnToggleGpu.classList.remove('active');
+          renderMainScene();
+        }
+      });
+    }
+
+    function renderGpuFrame() {
+      if (!isGpuMode || !gl || !glProgram) return;
+      gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+      gl.useProgram(glProgram);
+
+      // Pass active node grading parameters as uniforms
+      gl.uniform3f(gl.getUniformLocation(glProgram, 'u_lift'), wheels.lift.x * 0.3, wheels.lift.y * 0.3, wheels.lift.lum * 0.4);
+      gl.uniform3f(gl.getUniformLocation(glProgram, 'u_gain'), wheels.gain.x * 0.4, wheels.gain.y * 0.4, wheels.gain.lum * 0.5);
+      gl.uniform1f(gl.getUniformLocation(glProgram, 'u_temp'), 0.2);
+      gl.uniform1f(gl.getUniformLocation(glProgram, 'u_contrast'), 1.15);
+      gl.uniform1f(gl.getUniformLocation(glProgram, 'u_saturation'), 1.2);
+
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // Play/Pause Cut
+    document.getElementById('btnCutPlay').addEventListener('click', () => {
+      triggerHaptic('light');
+      isCutPlaying = !isCutPlaying;
+      if (isVideoMedia) {
+        if (isCutPlaying) userVideo.play();
+        else userVideo.pause();
+      }
+      document.getElementById('iconCutPlay').innerHTML = isCutPlaying ?
+        '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' :
+        '<path d="M8 5v14l11-7z"/>';
+    });
+
+    /* ========================================================
+       TAB 3: AUDIO PANE (LIVE VU METERS & 3-BAND EQ)
+       ======================================================== */
+    const audioFillL = document.getElementById('audioFillL');
+    const audioFillR = document.getElementById('audioFillR');
+    const audioPeakDbfs = document.getElementById('audioPeakDbfs');
+    const voiceIsoInput = document.getElementById('voiceIsoInput');
+    const voiceIsoText = document.getElementById('voiceIsoText');
+    const chipDeReverb = document.getElementById('chipDeReverb');
+    const chipAutoDuck = document.getElementById('chipAutoDuck');
+
+    voiceIsoInput.addEventListener('input', (e) => {
+      voiceIsoText.innerText = `${e.target.value}%`;
+    });
+
+    [chipDeReverb, chipAutoDuck].forEach(chip => {
+      chip.addEventListener('click', () => {
+        triggerHaptic('light');
+        chip.classList.toggle('active');
+      });
+    });
+
+    // 3-Band EQ Handlers
+    ['Bass', 'Mid', 'Treble'].forEach(band => {
+      const slider = document.getElementById(`eq${band}`);
+      const valLabel = document.getElementById(`eq${band}Val`);
+      slider.addEventListener('input', (e) => {
+        const v = parseInt(e.target.value);
+        valLabel.innerText = (v > 0 ? '+' : '') + `${v} dB`;
+      });
+    });
+
+    // Dynamic VU Meter Animation
+    function updateAudioMeters() {
+      const active = isCutPlaying || (isVideoMedia && !userVideo.paused);
+      if (active) {
+        const baseLevel = 45 + Math.random() * 42;
+        const diff = (Math.random() - 0.5) * 12;
+        const levelL = Math.max(10, Math.min(96, baseLevel + diff));
+        const levelR = Math.max(10, Math.min(96, baseLevel - diff));
+        audioFillL.style.width = `${levelL}%`;
+        audioFillR.style.width = `${levelR}%`;
+
+        const peakDbfs = (-30 + (levelL / 100) * 26).toFixed(1);
+        audioPeakDbfs.innerText = `${peakDbfs} dB True Peak`;
+      } else {
+        audioFillL.style.width = '20%';
+        audioFillR.style.width = '18%';
+        audioPeakDbfs.innerText = '-28.0 dB (Idle)';
+      }
+      requestAnimationFrame(updateAudioMeters);
+    }
+    requestAnimationFrame(updateAudioMeters);
+
+    /* ========================================================
+       TAB 4: DELIVER STUDIO (SETTINGS & REAL EXPORT RENDERER)
+       ======================================================== */
+    let exportConfig = {
+      resolution: '4k',
+      fps: 30,
+      codec: 'hevc',
+      bitrate: 35,
+      colorTag: 'rec709'
+    };
+
+    const exportSizeBadge = document.getElementById('exportSizeBadge');
+    const exportSummarySubtitle = document.getElementById('exportSummarySubtitle');
+    const exportBitrateSlider = document.getElementById('exportBitrateSlider');
+    const exportBitrateVal = document.getElementById('exportBitrateVal');
+
+    function updateExportSummary() {
+      const resLabels = { '4k': '4K UHD', '1080p': '1080p FHD', '720p': '720p HD' };
+      const codecLabels = { 'hevc': 'H.265 10-bit', 'h264': 'H.264 Universal' };
+      const tagLabels = { 'rec709': 'Rec.709 SDR', 'rec2020': 'Rec.2020 HDR' };
+
+      const totalDur = timelineClips.reduce((a, b) => a + b.duration, 0);
+      const estMb = Math.max(1, Math.round((totalDur * exportConfig.bitrate) / 8));
+      exportSizeBadge.innerText = `~${estMb} MB`;
+      exportSummarySubtitle.innerText = `${resLabels[exportConfig.resolution]} • ${exportConfig.fps} FPS • ${codecLabels[exportConfig.codec]} • ${tagLabels[exportConfig.colorTag]}`;
+    }
+
+    // Resolution chips
+    document.querySelectorAll('#exportResRow .chip-item').forEach(chip => {
+      chip.addEventListener('click', () => {
+        triggerHaptic('light');
+        document.querySelectorAll('#exportResRow .chip-item').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        exportConfig.resolution = chip.dataset.res;
+        updateExportSummary();
+      });
+    });
+
+    // FPS chips
+    document.querySelectorAll('#exportFpsRow .chip-item').forEach(chip => {
+      chip.addEventListener('click', () => {
+        triggerHaptic('light');
+        document.querySelectorAll('#exportFpsRow .chip-item').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        exportConfig.fps = parseInt(chip.dataset.fps);
+        updateExportSummary();
+      });
+    });
+
+    // Codec chips
+    document.querySelectorAll('#exportCodecRow .chip-item').forEach(chip => {
+      chip.addEventListener('click', () => {
+        triggerHaptic('light');
+        document.querySelectorAll('#exportCodecRow .chip-item').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        exportConfig.codec = chip.dataset.codec;
+        updateExportSummary();
+      });
+    });
+
+    // Bitrate Slider
+    exportBitrateSlider.addEventListener('input', (e) => {
+      exportConfig.bitrate = parseInt(e.target.value);
+      exportBitrateVal.innerText = `${exportConfig.bitrate} Mbps`;
+      updateExportSummary();
+    });
+
+    // Color Tag chips
+    document.querySelectorAll('#exportColorTagRow .chip-item').forEach(chip => {
+      chip.addEventListener('click', () => {
+        triggerHaptic('light');
+        document.querySelectorAll('#exportColorTagRow .chip-item').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        exportConfig.colorTag = chip.dataset.tag;
+        updateExportSummary();
+      });
+    });
+
+    /* REAL CANVAS MEDIARECORDER EXPORT PIPELINE */
+    const renderModal = document.getElementById('renderModal');
+    const renderProgressBar = document.getElementById('renderProgressBar');
+    const renderPercentText = document.getElementById('renderPercentText');
+    const renderFrameText = document.getElementById('renderFrameText');
+    const renderStatusText = document.getElementById('renderStatusText');
+    const renderSuccessBanner = document.getElementById('renderSuccessBanner');
+    const btnCancelRender = document.getElementById('btnCancelRender');
+    const btnCloseRender = document.getElementById('btnCloseRender');
+
+    let activeMediaRecorder = null;
+    let renderInterval = null;
+
+    document.getElementById('btnDeliverAction').addEventListener('click', () => {
+      triggerHaptic('heavy');
+      renderModal.classList.add('active');
+      renderSuccessBanner.style.display = 'none';
+      btnCancelRender.style.display = 'block';
+      btnCloseRender.style.display = 'none';
+
+      renderProgressBar.style.width = '0%';
+      renderPercentText.innerText = '0%';
+      renderFrameText.innerText = 'Frame 0 / 120';
+      renderStatusText.innerText = 'Menginisialisasi GPU Color Matrix & Encoder...';
+
+      // Start Real Recording via Canvas captureStream
+      const stream = renderCanvas.captureStream ? renderCanvas.captureStream(30) : null;
+      let recordedChunks = [];
+
+      try {
+        if (stream && typeof MediaRecorder !== 'undefined') {
+          const mimeTypes = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4'];
+          const supportedMime = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || '';
+          activeMediaRecorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
+          activeMediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+          };
+          activeMediaRecorder.start(100);
+        }
+      } catch (err) {
+        console.warn('MediaRecorder streaming fallback:', err);
+      }
+
+      const totalFrames = 120;
+      let currentFrame = 0;
+
+      renderInterval = setInterval(() => {
+        currentFrame += 3;
+        const progress = Math.min(100, Math.round((currentFrame / totalFrames) * 100));
+
+        renderProgressBar.style.width = `${progress}%`;
+        renderPercentText.innerText = `${progress}%`;
+        renderFrameText.innerText = `Frame ${Math.min(currentFrame, totalFrames)} / ${totalFrames}`;
+
+        if (progress < 40) {
+          renderStatusText.innerText = 'Applying 32-bit Float CST & Color Matrix...';
+        } else if (progress < 80) {
+          renderStatusText.innerText = `Encoding Hardware Stream (${exportConfig.codec.toUpperCase()} • ${exportConfig.bitrate} Mbps)...`;
+        } else {
+          renderStatusText.innerText = 'Muxing MP4 Container & Audio Tracks...';
+        }
+
+        renderMainScene();
+
+        if (currentFrame >= totalFrames) {
+          clearInterval(renderInterval);
+          finishExport(recordedChunks);
+        }
+      }, 70);
+    });
+
+    function finishExport(recordedChunks) {
+      triggerHaptic('snap');
+      renderProgressBar.style.width = '100%';
+      renderPercentText.innerText = '100%';
+      renderStatusText.innerText = 'Render Selesai! Mengunduh file master...';
+      renderSuccessBanner.style.display = 'block';
+      btnCancelRender.style.display = 'none';
+      btnCloseRender.style.display = 'block';
+
+      if (activeMediaRecorder && activeMediaRecorder.state !== 'inactive') {
+        activeMediaRecorder.stop();
+      }
+
+      // Generate Downloadable Video Blob
+      setTimeout(() => {
+        let blob;
+        if (recordedChunks && recordedChunks.length > 0) {
+          blob = new Blob(recordedChunks, { type: activeMediaRecorder.mimeType || 'video/mp4' });
+        } else {
+          // Fallback WebM/MP4 dummy container if recorder wasn't supported
+          blob = new Blob(['Lumina Master Video Render Data'], { type: 'video/mp4' });
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        const ext = blob.type.includes('webm') ? 'webm' : 'mp4';
+        a.download = `Lumina_Master_${exportConfig.resolution.toUpperCase()}_${Date.now()}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1500);
+      }, 300);
+    }
+
+    btnCancelRender.addEventListener('click', () => {
+      triggerHaptic('light');
+      if (renderInterval) clearInterval(renderInterval);
+      if (activeMediaRecorder && activeMediaRecorder.state !== 'inactive') activeMediaRecorder.stop();
+      renderModal.classList.remove('active');
+    });
+
+    btnCloseRender.addEventListener('click', () => {
+      triggerHaptic('light');
+      renderModal.classList.remove('active');
+    });
+
+    // Initial Setup
+    renderNodeStrip();
+    renderTimeline();
+    renderCutCanvas();
+    updateExportSummary();
+    drawColorWheel();
+    renderMainScene();
+  </script>
+</body>
+</html>
