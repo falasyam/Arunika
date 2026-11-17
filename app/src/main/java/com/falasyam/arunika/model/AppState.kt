@@ -54,7 +54,10 @@ enum class AspectRatioMode(
     CLASSIC_4_3("4:3 Retro / iPad Academy", 1440, 1080, 4, 3, false, "Retro / TV / iPad"),
     UNIVISIUM_2_1("2:1 (18:9) Univisium / Netflix", 2160, 1080, 2, 1, false, "Netflix / Streaming"),
     ANAMORPHIC_21_9("21:9 (2.39:1) Scope Widescreen", 2560, 1080, 21, 9, false, "Ultra-wide Cinema"),
-    CUSTOM("Custom Width & Height", 1920, 1080, 0, 0, false, "Custom Dimensions")
+    CUSTOM("Custom Width & Height", 1920, 1080, 0, 0, false, "Custom Dimensions");
+
+    val ratioFloat: Float
+        get() = if (heightRatio > 0 && widthRatio > 0) widthRatio.toFloat() / heightRatio.toFloat() else defaultWidth.toFloat() / defaultHeight.toFloat()
 }
 
 /**

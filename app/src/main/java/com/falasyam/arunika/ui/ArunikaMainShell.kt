@@ -306,6 +306,9 @@ fun ArunikaEditorShell(
                             ArunikaTab.CUT -> CutScreen(
                                 initialClips = project.videoClips,
                                 initialAudioClips = project.audioClips,
+                                aspectRatio = project.aspectRatio,
+                                colorStudioState = colorStudioState,
+                                titlingState = titlingState,
                                 currentVideoUri = currentVideoUri,
                                 onVideoUriChanged = { currentVideoUri = it },
                                 isPlaying = isPlaying,
@@ -313,6 +316,7 @@ fun ArunikaEditorShell(
                             )
                             ArunikaTab.COLOR -> ColorStudioScreen(
                                 state = colorStudioState,
+                                aspectRatio = project.aspectRatio,
                                 videoUri = currentVideoUri,
                                 isPlaying = isPlaying,
                                 onTogglePlay = { isPlaying = !isPlaying },
@@ -321,7 +325,11 @@ fun ArunikaEditorShell(
                                 }
                             )
                             ArunikaTab.AUDIO -> AudioScreen(state = audioState)
-                            ArunikaTab.TITLING -> TitlingScreen(titlingState = titlingState)
+                            ArunikaTab.TITLING -> TitlingScreen(
+                                titlingState = titlingState,
+                                aspectRatio = project.aspectRatio,
+                                videoUri = currentVideoUri
+                            )
                             ArunikaTab.DELIVER -> DeliverScreen(state = deliverState)
                         }
                     }

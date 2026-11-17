@@ -30,10 +30,12 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.falasyam.arunika.model.ClipMediaType
-import com.falasyam.arunika.model.TimelineClip
+import kotlin.math.roundToInt
+import com.falasyam.arunika.model.*
+import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.VideoPlayerView
 
 /**
@@ -47,6 +49,9 @@ import com.falasyam.arunika.ui.components.VideoPlayerView
 fun CutScreen(
     initialClips: List<TimelineClip> = emptyList(),
     initialAudioClips: List<TimelineClip> = emptyList(),
+    aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
+    colorStudioState: ColorStudioState? = null,
+    titlingState: TitlingState? = null,
     currentVideoUri: String? = null,
     onVideoUriChanged: (String?) -> Unit = {},
     currentTimeMs: Long = 0L,
@@ -201,9 +206,9 @@ fun CutScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // ========================================================
+        // ============================================
         // 1. AREA MONITOR PREVIEW VIDEO & HUD
-        // ========================================================
+        // ============================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -211,21 +216,91 @@ fun CutScreen(
                 .background(Color(0xFF0F0F11)),
             contentAlignment = Alignment.Center
         ) {
-            // Bingkai aspek rasio video (16:9)
+            val ratio = aspectRatio.ratioFloat
+
+            // Bingkai aspek rasio video responsif (16:9, 9:16, 1:1, 4:5, 21:9)
             Box(
                 modifier = Modifier
-                    .aspectRatio(16f / 9f)
-                    .fillMaxHeight(0.85f)
+                    .padding(8.dp)
+                    .aspectRatio(ratio, matchHeightConstraintsFirst = aspectRatio.isVertical)
+                    .fillMaxHeight(if (aspectRatio.isVertical) 0.94f else 0.88f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF1E1E24)),
                 contentAlignment = Alignment.Center
             ) {
-                // Tampilan preview video nyata menggunakan VideoView
+                // Tampilan preview video nyata menggunakan ExoPlayer
                 VideoPlayerView(
                     uri = currentVideoUri,
                     isPlaying = isPlaying,
                     modifier = Modifier.fillMaxSize()
                 )
+
+                // 1. Real-time Color Grading Effect Overlay (Wheels, LUT, CST, Luma)
+                if (colorStudioState != null) {
+                    ColorGradingOverlay(
+                        state = colorStudioState,
+                        isBypassed = false,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // 2. Real-time Track V2 Title / Subtitle Overlay dari Fusion Lite
+                titlingState?.elements?.forEach { element ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .offset {
+                                IntOffset(
+                                    (element.x * 240).roundToInt(),
+                                    (element.y * 160).roundToInt()
+                                )
+                            }
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(element.bgColor))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        if (element.wordHighlight) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                element.text.split(" ").forEachIndexed { i, word ->
+                                    Text(
+                                        text = word,
+                                        fontSize = (element.fontSize * 0.85f).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (i == 1) Color(element.highlightColor) else Color(element.textColor)
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = element.text,
+                                fontSize = (element.fontSize * 0.85f).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(element.textColor),
+                                fontFamily = when (element.font) {
+                                    TitleFont.SERIF -> FontFamily.Serif
+                                    TitleFont.MONO -> FontFamily.Monospace
+                                    else -> FontFamily.Default
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Badge Format Aspek Rasio di sudut kiri atas video
+                Surface(
+                    color = Color.Black.copy(alpha = 0.65f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = aspectRatio.label.substringBefore(" "),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
 
                 // Timestamp HUD di sudut video
                 Surface(

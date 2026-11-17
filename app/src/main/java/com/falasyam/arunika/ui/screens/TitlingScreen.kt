@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.falasyam.arunika.model.*
+import com.falasyam.arunika.ui.components.VideoPlayerView
 import kotlin.math.roundToInt
 
 /**
@@ -43,6 +45,8 @@ import kotlin.math.roundToInt
 @Composable
 fun TitlingScreen(
     titlingState: TitlingState = remember { TitlingState() },
+    aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
+    videoUri: String? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -66,21 +70,34 @@ fun TitlingScreen(
                 .background(Color(0xFF0E0E11)),
             contentAlignment = Alignment.Center
         ) {
+            val ratio = aspectRatio.ratioFloat
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp)
+                    .aspectRatio(ratio, matchHeightConstraintsFirst = aspectRatio.isVertical)
+                    .fillMaxHeight(if (aspectRatio.isVertical) 0.94f else 0.88f)
+                    .padding(4.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF16151D))
+                    .background(Color(0xFF16151D)),
+                contentAlignment = Alignment.Center
             ) {
-                // Background video placeholder
-                Text(
-                    text = "Track V1 Video Preview\n[Drag text overlay directly on screen]",
-                    color = Color.White.copy(alpha = 0.35f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                // Background video preview jika ada, atau placeholder
+                if (videoUri != null) {
+                    VideoPlayerView(
+                        uri = videoUri,
+                        isPlaying = false,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(0.6f)
+                    )
+                } else {
+                    Text(
+                        text = "Track V1 Video Preview\n[Drag text overlay directly on screen]",
+                        color = Color.White.copy(alpha = 0.35f),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
 
                 // Render all Title Elements as overlays
                 titlingState.elements.forEach { element ->

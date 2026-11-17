@@ -46,6 +46,7 @@ import com.falasyam.arunika.ui.components.VideoPlayerView
 @Composable
 fun ColorStudioScreen(
     state: ColorStudioState = remember { ColorStudioState() },
+    aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
     videoUri: String? = null,
     isPlaying: Boolean = false,
     onTogglePlay: () -> Unit = {},
@@ -97,11 +98,13 @@ fun ColorStudioScreen(
                 .background(Color(0xFF0E0E11)),
             contentAlignment = Alignment.Center
         ) {
-            // Viewport Video
+            // Viewport Video Responsif sesuai format aspek rasio
+            val ratio = aspectRatio.ratioFloat
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp)
+                    .aspectRatio(ratio, matchHeightConstraintsFirst = aspectRatio.isVertical)
+                    .fillMaxHeight(if (aspectRatio.isVertical) 0.94f else 0.90f)
+                    .padding(4.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF1A1A20)),
                 contentAlignment = Alignment.Center
