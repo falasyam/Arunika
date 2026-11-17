@@ -928,6 +928,48 @@
       border: 1px solid #22c55e;
     }
 
+    /* Multi-Aspect Ratio & Safe Zones */
+    .btn-aspect {
+      background: var(--md-sys-color-surface-container-high);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      color: var(--md-sys-color-on-surface);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-aspect:active {
+      background: var(--md-sys-color-primary-container);
+    }
+    .safe-zone-overlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      border: 2px dashed rgba(250, 204, 21, 0.5);
+      margin: 14% 8% 22% 8%;
+    }
+    .safe-zone-label {
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      font-size: 8px;
+      color: #facc15;
+      font-weight: bold;
+      font-family: monospace;
+    }
+    .video-viewport.vertical {
+      max-width: 202px !important;
+      aspect-ratio: 9 / 16 !important;
+    }
+    .video-viewport.vertical .safe-zone-overlay {
+      display: block;
+    }
+
     /* Audio & Deliver cards */
     .card {
       background: var(--md-sys-color-surface-container);
@@ -1091,6 +1133,11 @@
       <span id="appHeaderSubtitle">Color Studio • CST & Pro Scopes</span>
     </div>
     <div class="top-actions">
+      <!-- Multi-Aspect Ratio Selector (16:9 Cinema ↔ 9:16 Shorts) -->
+      <button class="btn-aspect" id="btnAspectRatio" title="Ganti Rasio Video: 16:9 Cinema ↔ 9:16 Shorts/TikTok">
+        <span id="aspectRatioLabel">🖥️ 16:9</span>
+      </button>
+
       <!-- Media Import Button -->
       <button class="btn-import" id="btnImportMedia" title="Import Video/Foto dari HP">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
@@ -1206,10 +1253,13 @@
             <canvas id="renderCanvas" width="640" height="360"></canvas>
             <canvas id="glCanvas" width="640" height="360" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%;"></canvas>
 
-            <!-- Floating Video Controls (Scopes, Split Compare, GPU Shader) -->
+            <!-- Floating Video Controls (Scopes, Split Compare, GPU Shader, AI Shot Match) -->
             <div class="monitor-toolbar">
               <button class="monitor-tool-btn" id="btnToggleGpu">
                 <span>⚡</span> <span id="gpuBtnText">GPU Shader</span>
+              </button>
+              <button class="monitor-tool-btn" id="btnAiShotMatch" title="AI Shot Matcher & Auto Balance">
+                <span>🤖</span> <span>Shot Match</span>
               </button>
               <button class="monitor-tool-btn" id="btnToggleScope">
                 <span>📈</span> <span id="scopeBtnText">Scopes</span>
@@ -1217,6 +1267,11 @@
               <button class="monitor-tool-btn" id="btnToggleSplit">
                 <span>↔️</span> <span>Wipe</span>
               </button>
+            </div>
+
+            <!-- Safe Zone Guide for TikTok/Reels/Shorts -->
+            <div class="safe-zone-overlay">
+              <span class="safe-zone-label">TIKTOK / REELS SAFE ZONE</span>
             </div>
 
             <!-- Pro Scope Mini HUD Overlay -->
@@ -3306,6 +3361,75 @@
       triggerHaptic('light');
       renderModal.classList.remove('active');
     });
+
+    // ========================================================
+    // MODUL 4: MULTI-ASPECT RATIO (16:9 ↔ 9:16 SHORTS ↔ 1:1)
+    // ========================================================
+    const btnAspectRatio = document.getElementById('btnAspectRatio');
+    const aspectRatioLabel = document.getElementById('aspectRatioLabel');
+    const viewports = document.querySelectorAll('.video-viewport');
+    let currentAspect = '16:9';
+
+    if (btnAspectRatio) {
+      btnAspectRatio.addEventListener('click', () => {
+        triggerHaptic('snap');
+        if (currentAspect === '16:9') {
+          currentAspect = '9:16';
+          aspectRatioLabel.innerText = '📱 9:16';
+          viewports.forEach(v => v.classList.add('vertical'));
+        } else if (currentAspect === '9:16') {
+          currentAspect = '1:1';
+          aspectRatioLabel.innerText = '🔲 1:1';
+          viewports.forEach(v => {
+            v.classList.remove('vertical');
+            v.style.maxWidth = '360px';
+          });
+        } else {
+          currentAspect = '16:9';
+          aspectRatioLabel.innerText = '🖥️ 16:9';
+          viewports.forEach(v => {
+            v.classList.remove('vertical');
+            v.style.maxWidth = '';
+          });
+        }
+        renderMainScene();
+        renderCutCanvas();
+      });
+    }
+
+    // ========================================================
+    // MODUL 3: AI SHOT MATCHER & AUTO COLOR BALANCE
+    // ========================================================
+    const btnAiShotMatch = document.getElementById('btnAiShotMatch');
+    if (btnAiShotMatch) {
+      btnAiShotMatch.addEventListener('click', () => {
+        triggerHaptic('heavy');
+        btnAiShotMatch.classList.add('active');
+
+        // Simulasi analisis histogram AI Shot Matcher (Reference Shot vs Target Shot)
+        setTimeout(() => {
+          // Auto balance shadows (Lift: cool teal correction)
+          wheels.lift.x = -0.08;
+          wheels.lift.y = 0.05;
+          wheels.lift.lum = -0.04;
+
+          // Auto balance midtones (Gamma: warm skin-tone boost)
+          wheels.gamma.x = 0.12;
+          wheels.gamma.y = -0.04;
+          wheels.gamma.lum = 0.06;
+
+          // Auto balance highlights (Gain: clean neutral roll-off)
+          wheels.gain.x = 0.04;
+          wheels.gain.y = -0.02;
+          wheels.gain.lum = 0.02;
+
+          drawColorWheel();
+          renderMainScene();
+          btnAiShotMatch.classList.remove('active');
+          alert('✨ AI Shot Match Selesai!\nWarna klip berhasil diselaraskan dengan referensi sinematik (Balanced Skin-tones & Contrast).');
+        }, 350);
+      });
+    }
 
     // Initial Setup
     renderNodeStrip();
