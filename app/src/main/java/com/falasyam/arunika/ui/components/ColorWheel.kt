@@ -30,9 +30,10 @@ import kotlin.math.*
 @Composable
 fun InteractiveColorWheel(
     value: ColorWheelValue,
-    label: String,
+    label: String = "",
     modifier: Modifier = Modifier,
-    wheelSize: Float = 220f // dalam dp
+    wheelSize: Float = 220f, // dalam dp
+    onValueChanged: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     var wasAtCenter by remember { mutableStateOf(value.isNeutral) }

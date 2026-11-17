@@ -401,7 +401,7 @@ fun ColorStudioScreen(
                             // Canvas Interactive Wheel
                             InteractiveColorWheel(
                                 value = state.activeValue(),
-                                onValueChanged = { },
+                                label = state.activeTarget.label,
                                 modifier = Modifier.size(160.dp)
                             )
 

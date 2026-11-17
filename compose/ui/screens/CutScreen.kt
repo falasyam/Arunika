@@ -233,7 +233,7 @@ fun CutScreen(
 
                     clipList.forEach { clip ->
                         val isSelected = clip.id == selectedClipId
-                        val clipWidth = (clip.durationMs / 30).dp
+                        val clipWidth = (clip.durationMs / 30).toInt().dp
 
                         Box(
                             modifier = Modifier

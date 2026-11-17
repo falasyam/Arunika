@@ -131,8 +131,7 @@ fun ArunikaMainShell() {
                 // NavigationRail otomatis di mode Landscape (Tablet / HP diputar horizontal)
                 if (isLandscape) {
                     NavigationRail(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        tonalElevation = 4.dp
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ) {
                         ArunikaTab.values().forEach { tab ->
                             val isSelected = activeTab == tab
