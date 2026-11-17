@@ -208,6 +208,33 @@ fun ColorStudioScreen(
                             )
                         }
 
+                        // Tombol AI Shot Matcher (Auto Color Balance)
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                // Target frame (sample) vs reference frame
+                                val dummyTarget = FrameColorStats(0.48f, 0.18f, 0.42f, 0.16f, 0.38f, 0.15f, 0.43f, 0.17f)
+                                val idealRef = FrameColorStats(0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f)
+                                val matchResult = ShotMatcher.matchShots(reference = idealRef, target = dummyTarget)
+                                
+                                state.lift.x = matchResult.liftOffsetR
+                                state.lift.y = matchResult.liftOffsetB
+                                state.gain.x = matchResult.gainOffsetR
+                                state.gain.y = matchResult.gainOffsetB
+                                state.gamma.x = matchResult.gammaOffsetR
+                                state.gamma.y = matchResult.gammaOffsetB
+                                state.saturation = matchResult.saturationMultiplier.coerceIn(0.8f, 1.4f)
+                                state.contrast = matchResult.contrastMultiplier.coerceIn(0.9f, 1.3f)
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Rounded.AutoFixHigh,
+                                contentDescription = "AI Shot Matcher",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
                         // Tombol Import Video / Foto
                         TextButton(
                             onClick = {

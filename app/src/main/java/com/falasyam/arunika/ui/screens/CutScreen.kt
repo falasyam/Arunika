@@ -1,5 +1,7 @@
-﻿package com.falasyam.arunika.ui.screens
+package com.falasyam.arunika.ui.screens
 
+import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -64,6 +67,7 @@ fun CutScreen(
     onTogglePlay: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     // State Klip Video & Foto (Track V1)
     var videoClips by remember { mutableStateOf(initialClips) }
@@ -79,17 +83,31 @@ fun CutScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var importDialogInitialTab by remember { mutableStateOf(0) } // 0: Video/Foto, 1: Audio
 
+    // Helper untuk mengekstrak durasi media fisik dari URI
+    fun extractMediaDurationMs(uri: Uri, defaultDuration: Long): Long {
+        return try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(context, uri)
+            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            retriever.release()
+            durationStr?.toLongOrNull()?.coerceAtLeast(500L) ?: defaultDuration
+        } catch (_: Exception) {
+            defaultDuration
+        }
+    }
+
     // Android ActivityResult Pickers untuk file fisik dari perangkat
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "Video_${System.currentTimeMillis()}.mp4"
+            val realDuration = extractMediaDurationMs(it, 5000L)
             val newId = "v${nextIdCounter++}"
             val newClip = TimelineClip(
                 id = newId,
                 name = fileName,
-                durationMs = 5000,
+                durationMs = realDuration,
                 startOffsetMs = videoClips.sumOf { c -> c.durationMs },
                 colorTag = 0xFF0284C7,
                 mediaType = ClipMediaType.VIDEO,
@@ -128,11 +146,12 @@ fun CutScreen(
     ) { uri: Uri? ->
         uri?.let {
             val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "Audio_${System.currentTimeMillis()}.mp3"
+            val realDuration = extractMediaDurationMs(it, 8000L)
             val newId = "a${nextIdCounter++}"
             val newClip = TimelineClip(
                 id = newId,
                 name = fileName,
-                durationMs = 8000,
+                durationMs = realDuration,
                 startOffsetMs = audioClips.sumOf { c -> c.durationMs },
                 colorTag = 0xFF059669,
                 mediaType = ClipMediaType.AUDIO,
@@ -169,8 +188,8 @@ fun CutScreen(
     LaunchedEffect(currentPlayheadMs, isPlaying) {
         if (isPlaying) {
             val playheadPx = with(density) { (60.dp + (currentPlayheadMs / 30f).dp).toPx() }
-            val viewWidthPx = with(density) { 360.dp.toPx() }
-            val scrollTarget = (playheadPx - viewWidthPx / 2).toInt().coerceAtLeast(0)
+            val viewportWidth = if (timelineScroll.viewportSize > 0) timelineScroll.viewportSize else with(density) { 360.dp.toPx().toInt() }
+            val scrollTarget = (playheadPx - viewportWidth / 2).toInt().coerceAtLeast(0)
             if (kotlin.math.abs(timelineScroll.value - scrollTarget) > 15) {
                 timelineScroll.scrollTo(scrollTarget)
             }
@@ -303,12 +322,14 @@ fun CutScreen(
                                 val half = target.durationMs / 2
                                 val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_pt1")
                                 val newId = "a${nextIdCounter++}"
-                                val part2 = target.copy(id = newId, durationMs = half, name = "${target.name.substringBeforeLast(".")}_pt2")
+                                val part2 = target.copy(id = newId, durationMs = target.durationMs - half, startOffsetMs = target.startOffsetMs + half, name = "${target.name.substringBeforeLast(".")}_pt2")
                                 val mutable = audioClips.toMutableList()
                                 mutable.removeAt(idx)
                                 mutable.add(idx, part1)
                                 mutable.add(idx + 1, part2)
-                                audioClips = mutable
+                                // Recalculate semua startOffsetMs agar tidak ada gap/overlap
+                                var offset = 0L
+                                audioClips = mutable.mapIndexed { i, c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = newId
                             }
                         }
@@ -320,12 +341,14 @@ fun CutScreen(
                                 val half = target.durationMs / 2
                                 val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_part1")
                                 val newId = "v${nextIdCounter++}"
-                                val part2 = target.copy(id = newId, durationMs = half, name = "${target.name.substringBeforeLast(".")}_part2")
+                                val part2 = target.copy(id = newId, durationMs = target.durationMs - half, startOffsetMs = target.startOffsetMs + half, name = "${target.name.substringBeforeLast(".")}_part2")
                                 val mutable = videoClips.toMutableList()
                                 mutable.removeAt(idx)
                                 mutable.add(idx, part1)
                                 mutable.add(idx + 1, part2)
-                                videoClips = mutable
+                                // Recalculate semua startOffsetMs agar tidak ada gap/overlap
+                                var offset = 0L
+                                videoClips = mutable.mapIndexed { i, c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = newId
                             }
                         }
@@ -343,7 +366,8 @@ fun CutScreen(
                             if (idx != -1) {
                                 val mutable = audioClips.toMutableList()
                                 mutable.removeAt(idx)
-                                audioClips = mutable
+                                var offset = 0L
+                                audioClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = audioClips[maxOf(0, idx - 1)].id
                             }
                         }
@@ -353,7 +377,8 @@ fun CutScreen(
                             if (idx != -1) {
                                 val mutable = videoClips.toMutableList()
                                 mutable.removeAt(idx)
-                                videoClips = mutable
+                                var offset = 0L
+                                videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = videoClips[maxOf(0, idx - 1)].id
                             }
                         }
@@ -378,11 +403,20 @@ fun CutScreen(
                         val idx = videoClips.indexOfFirst { it.id == selectedClipId }
                         if (idx != -1) {
                             val target = videoClips[idx]
-                            val newDur = if (target.durationMs > 3000) target.durationMs / 2 else target.durationMs * 2
+                            val newSpeed = when (target.speedMultiplier) {
+                                1.0f -> 1.5f
+                                1.5f -> 2.0f
+                                2.0f -> 0.5f
+                                else -> 1.0f
+                            }
+                            val baseDuration = (target.durationMs * target.speedMultiplier).toLong()
+                            val newDur = (baseDuration / newSpeed).toLong().coerceAtLeast(500L)
                             val mutable = videoClips.toMutableList()
-                            mutable[idx] = target.copy(durationMs = newDur)
-                            videoClips = mutable
+                            mutable[idx] = target.copy(durationMs = newDur, speedMultiplier = newSpeed)
+                            var offset = 0L
+                            videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                         }
+                    }
                     }
                 }) {
                     val icon = if (selectedClipMediaType == ClipMediaType.AUDIO) Icons.Rounded.VolumeUp else Icons.Rounded.Speed
@@ -400,7 +434,8 @@ fun CutScreen(
                             val dup = target.copy(id = newId, name = "${target.name.substringBeforeLast(".")}_copy")
                             val mutable = audioClips.toMutableList()
                             mutable.add(idx + 1, dup)
-                            audioClips = mutable
+                            var offset = 0L
+                            audioClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                             selectedClipId = newId
                         }
                     } else {
@@ -411,7 +446,8 @@ fun CutScreen(
                             val dup = target.copy(id = newId, name = "${target.name.substringBeforeLast(".")}_copy")
                             val mutable = videoClips.toMutableList()
                             mutable.add(idx + 1, dup)
-                            videoClips = mutable
+                            var offset = 0L
+                            videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                             selectedClipId = newId
                         }
                     }
@@ -626,7 +662,7 @@ fun CutScreen(
                                         modifier = Modifier.align(Alignment.BottomEnd)
                                     ) {
                                         Text(
-                                            text = "${clip.durationMs / 1000.0}s",
+                                            text = if (clip.speedMultiplier != 1.0f) "${clip.speedMultiplier}x • ${clip.durationMs / 1000.0}s" else "${clip.durationMs / 1000.0}s",
                                             color = Color.White.copy(alpha = 0.9f),
                                             style = MaterialTheme.typography.labelSmall,
                                             fontSize = 9.sp,

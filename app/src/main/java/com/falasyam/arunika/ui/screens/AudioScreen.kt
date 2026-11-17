@@ -39,6 +39,24 @@ fun AudioScreen(
     var midGain by remember { mutableStateOf(state.midGainDb) }
     var trebleGain by remember { mutableStateOf(state.trebleGainDb) }
 
+    // Dynamic VU Meter Simulation State
+    var leftMeterLevel by remember { mutableFloatStateOf(0.65f) }
+    var rightMeterLevel by remember { mutableFloatStateOf(0.60f) }
+    var currentPeakDb by remember { mutableFloatStateOf(-6.2f) }
+
+    LaunchedEffect(masterVol) {
+        while (true) {
+            val randomJitterL = (kotlin.random.Random.nextFloat() * 0.25f - 0.12f)
+            val randomJitterR = (kotlin.random.Random.nextFloat() * 0.25f - 0.12f)
+            val baseLevel = (0.70f * masterVol).coerceIn(0.05f, 1.0f)
+            leftMeterLevel = (baseLevel + randomJitterL).coerceIn(0.02f, 1.0f)
+            rightMeterLevel = (baseLevel + randomJitterR).coerceIn(0.02f, 1.0f)
+            val maxLevel = maxOf(leftMeterLevel, rightMeterLevel)
+            currentPeakDb = (-24f * (1f - maxLevel) - 0.5f).coerceIn(-48f, 0.0f)
+            kotlinx.coroutines.delay(65L)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -65,9 +83,9 @@ fun AudioScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "-6.2 dB (True Peak)",
+                        text = "${String.format(java.util.Locale.US, "%.1f", currentPeakDb)} dB (True Peak)",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (currentPeakDb > -2.0f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
                 }
 
@@ -83,11 +101,16 @@ fun AudioScreen(
                             .clip(RoundedCornerShape(4.dp))
                             .background(Color(0xFF26262B))
                     ) {
+                        val barColor = when {
+                            leftMeterLevel > 0.88f -> Color(0xFFEF4444)
+                            leftMeterLevel > 0.70f -> Color(0xFFF59E0B)
+                            else -> Color(0xFF10B981)
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .fillMaxWidth(0.72f)
-                                .background(Color(0xFF10B981))
+                                .fillMaxWidth(leftMeterLevel)
+                                .background(barColor)
                         )
                     }
                 }
@@ -104,11 +127,16 @@ fun AudioScreen(
                             .clip(RoundedCornerShape(4.dp))
                             .background(Color(0xFF26262B))
                     ) {
+                        val barColor = when {
+                            rightMeterLevel > 0.88f -> Color(0xFFEF4444)
+                            rightMeterLevel > 0.70f -> Color(0xFFF59E0B)
+                            else -> Color(0xFF10B981)
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .fillMaxWidth(0.68f)
-                                .background(Color(0xFF10B981))
+                                .fillMaxWidth(rightMeterLevel)
+                                .background(barColor)
                         )
                     }
                 }

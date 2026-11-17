@@ -1,5 +1,11 @@
 package com.falasyam.arunika.model
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 /**
  * Ukuran resolusi video (Lebar x Tinggi dalam piksel) dengan dukungan kustom
  */
@@ -58,6 +64,7 @@ enum class ArunikaTab(val title: String, val subtitle: String) {
     CUT("Cut", "Assembly & Magnetic Timeline"),
     COLOR("Color", "32-bit Floating Point Color Wheels"),
     AUDIO("Audio", "Fairlight Lite & AI Voice Isolator"),
+    TITLING("Titling", "Fusion Lite Text & Caption Overlay"),
     DELIVER("Deliver", "Render & 10-bit HDR Export")
 }
 
@@ -81,7 +88,8 @@ data class TimelineClip(
     val colorTag: Long = 0xFF3B82F6, // Blue accent
     val mediaType: ClipMediaType = ClipMediaType.VIDEO,
     val uriString: String? = null,
-    val volume: Float = 1.0f
+    val volume: Float = 1.0f,
+    val speedMultiplier: Float = 1.0f
 )
 
 /**
@@ -195,12 +203,12 @@ enum class ExportCodec(val label: String, val description: String) {
     PRORES_PROXY("Apple ProRes Proxy", "Master arsip pascaproduksi")
 }
 
-data class DeliverExportState(
-    var resolution: ExportResolution = ExportResolution.HD_1080P,
-    var frameRate: Int = 30, // 24, 30, 60
-    var codec: ExportCodec = ExportCodec.H265_10BIT,
-    var bitrateMbps: Float = 28.0f,
-    var colorSpaceTag: String = "Rec.709 SDR",
-    var isExporting: Boolean = false,
-    var exportProgress: Float = 0.0f
-)
+class DeliverExportState {
+    var resolution by mutableStateOf(ExportResolution.HD_1080P)
+    var frameRate by mutableIntStateOf(30)
+    var codec by mutableStateOf(ExportCodec.H265_10BIT)
+    var bitrateMbps by mutableFloatStateOf(28.0f)
+    var colorSpaceTag by mutableStateOf("Rec.709 SDR")
+    var isExporting by mutableStateOf(false)
+    var exportProgress by mutableFloatStateOf(0.0f)
+}

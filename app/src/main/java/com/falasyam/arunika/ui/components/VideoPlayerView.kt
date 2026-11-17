@@ -1,7 +1,6 @@
 package com.falasyam.arunika.ui.components
 
 import android.net.Uri
-import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -12,13 +11,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 /**
- * Komponen pemutaran video nyata menggunakan AndroidView + VideoView bawaan Android.
- * - Mendukung play/pause real via VideoView.start()/pause()
+ * Komponen pemutaran video modern menggunakan AndroidView + ExoPlayer (Media3).
+ * - Mendukung play/pause real via ExoPlayer
+ * - Seek ke posisi playhead sinkron
  * - Error state jika format tidak didukung
  * - Placeholder informatif saat belum ada klip dipilih
  */
@@ -27,38 +32,63 @@ fun VideoPlayerView(
     uri: String?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+    seekToMs: Long = 0L,
     onDurationReady: (Long) -> Unit = {}
 ) {
+    val context = LocalContext.current
+
     if (uri != null) {
         var hasError by remember { mutableStateOf(false) }
+
+        // Reset error state saat URI berubah
         LaunchedEffect(uri) { hasError = false }
+
         Box(modifier = modifier) {
             if (!hasError) {
-                key(uri) {
-                    AndroidView(
-                        factory = { context ->
-                            VideoView(context).apply {
-                                setVideoURI(Uri.parse(uri))
-                                setOnPreparedListener { mp ->
-                                    mp.isLooping = true
-                                    onDurationReady(mp.duration.toLong())
-                                    if (isPlaying) start()
-                                }
-                                setOnErrorListener { _, _, _ ->
-                                    hasError = true
-                                    true
+                val exoPlayer = remember(uri) {
+                    ExoPlayer.Builder(context).build().apply {
+                        setMediaItem(MediaItem.fromUri(Uri.parse(uri)))
+                        repeatMode = Player.REPEAT_MODE_ALL
+                        prepare()
+                        addListener(object : Player.Listener {
+                            override fun onPlaybackStateChanged(state: Int) {
+                                if (state == Player.STATE_READY) {
+                                    onDurationReady(duration.coerceAtLeast(0L))
                                 }
                             }
-                        },
-                        update = { videoView ->
-                            if (isPlaying && !videoView.isPlaying) videoView.start()
-                            else if (!isPlaying && videoView.isPlaying) videoView.pause()
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                                hasError = true
+                            }
+                        })
+                    }
                 }
+
+                DisposableEffect(exoPlayer) {
+                    onDispose { exoPlayer.release() }
+                }
+
+                // Sync play/pause state
+                LaunchedEffect(isPlaying) {
+                    if (isPlaying) exoPlayer.play() else exoPlayer.pause()
+                }
+
+                // Sync seek position jika seekToMs berubah signifikan
+                LaunchedEffect(seekToMs) {
+                    if (kotlin.math.abs(exoPlayer.currentPosition - seekToMs) > 250) {
+                        exoPlayer.seekTo(seekToMs)
+                    }
+                }
+
+                AndroidView(
+                    factory = {
+                        PlayerView(context).apply {
+                            player = exoPlayer
+                            useController = false // Sembunyikan kontrol bawaan, gunakan kontrol custom Arunika
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
             } else {
-                // Format tidak didukung
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -106,4 +136,3 @@ fun VideoPlayerView(
         }
     }
 }
-

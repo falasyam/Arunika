@@ -17,6 +17,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.falasyam.arunika.model.DeliverExportState
@@ -35,12 +38,13 @@ fun DeliverScreen(
     state: DeliverExportState = remember { DeliverExportState() }
 ) {
     val haptic = LocalHapticFeedback.current
-    var resolution by remember { mutableStateOf(state.resolution) }
-    var codec by remember { mutableStateOf(state.codec) }
-    var fps by remember { mutableStateOf(state.frameRate) }
-    var bitrate by remember { mutableStateOf(state.bitrateMbps) }
-    var isExporting by remember { mutableStateOf(state.isExporting) }
-    var progress by remember { mutableStateOf(state.exportProgress) }
+    val scope = rememberCoroutineScope()
+    var resolution by state::resolution
+    var codec by state::codec
+    var fps by state::frameRate
+    var bitrate by state::bitrateMbps
+    var isExporting by state::isExporting
+    var progress by state::exportProgress
 
     // Estimasi ukuran file (durasi 19 detik)
     val estimatedSizeMb = (19 * bitrate / 8).toInt()
@@ -239,15 +243,10 @@ fun DeliverScreen(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             isExporting = false
                             progress = 0f
+                            state.isExporting = false
+                            state.exportProgress = 0f
                         }) {
                             Text("Batal")
-                        }
-                        Button(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            progress = 1f
-                            isExporting = false
-                        }) {
-                            Text("Selesai & Simpan")
                         }
                     }
                 }
@@ -257,7 +256,34 @@ fun DeliverScreen(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     isExporting = true
-                    progress = 0.45f
+                    progress = 0f
+                    scope.launch {
+                        // Simulasi pipeline render bertahap
+                        val steps = listOf(
+                            0.05f to 300L,  // Init MediaCodec
+                            0.15f to 400L,  // Decode source
+                            0.30f to 500L,  // Apply color grade
+                            0.50f to 600L,  // Encode pass 1
+                            0.70f to 500L,  // Encode pass 2
+                            0.85f to 400L,  // Mux audio
+                            0.95f to 300L,  // Finalize container
+                            1.00f to 200L   // Write to storage
+                        )
+                        for ((target, duration) in steps) {
+                            val start = progress
+                            val diff = target - start
+                            val stepMs = 16L
+                            val iterations = (duration / stepMs).coerceAtLeast(1)
+                            repeat(iterations.toInt()) { i ->
+                                progress = start + diff * (i.toFloat() / iterations)
+                                delay(stepMs)
+                            }
+                            progress = target
+                        }
+                        delay(500L)
+                        isExporting = false
+                        progress = 0f
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()

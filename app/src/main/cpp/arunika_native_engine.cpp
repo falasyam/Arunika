@@ -169,6 +169,7 @@ Java_com_falasyam_arunika_model_NativeGpuShaderEngine_nativeSetUniforms(
     jfloat lr, jfloat lg, jfloat lb,
     jfloat gr, jfloat gg, jfloat gb,
     jfloat hr, jfloat hg, jfloat hb,
+    jfloat or_, jfloat og, jfloat ob,
     jfloat temp, jfloat contrast, jfloat sat, jfloat vignette,
     jboolean useLut, jfloat lutInt) {
     if (!g_program) return;
@@ -177,12 +178,51 @@ Java_com_falasyam_arunika_model_NativeGpuShaderEngine_nativeSetUniforms(
     glUniform3f(g_locLift, lr, lg, lb);
     glUniform3f(g_locGamma, gr, gg, gb);
     glUniform3f(g_locGain, hr, hg, hb);
+    glUniform3f(g_locOffset, or_, og, ob);
     glUniform1f(g_locTemp, temp);
     glUniform1f(g_locContrast, contrast);
     glUniform1f(g_locSaturation, sat);
     glUniform1f(g_locVignette, vignette);
     glUniform1i(g_locUseLut, useLut ? 1 : 0);
     glUniform1f(g_locLutIntensity, lutInt);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_falasyam_arunika_model_NativeGpuShaderEngine_nativeRender(
+    JNIEnv* env, jobject thiz, jint srcTex, jint dstFbo) {
+    if (!g_program) return;
+    glBindFramebuffer(GL_FRAMEBUFFER, dstFbo);
+    glUseProgram(g_program);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, srcTex);
+    GLint uTex = glGetUniformLocation(g_program, "u_videoTexture");
+    if (uTex >= 0) glUniform1i(uTex, 0);
+
+    if (g_lutTexture3D) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_3D, g_lutTexture3D);
+        GLint uLut = glGetUniformLocation(g_program, "u_lutTexture3D");
+        if (uLut >= 0) glUniform1i(uLut, 1);
+    }
+
+    // Fullscreen quad vertices [x, y, u, v]
+    static const GLfloat quadVertices[] = {
+        -1.0f, -1.0f,  0.0f, 0.0f,
+         1.0f, -1.0f,  1.0f, 0.0f,
+        -1.0f,  1.0f,  0.0f, 1.0f,
+         1.0f,  1.0f,  1.0f, 1.0f,
+    };
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), quadVertices);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), &quadVertices[2]);
+    glEnableVertexAttribArray(1);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 extern "C" JNIEXPORT void JNICALL
