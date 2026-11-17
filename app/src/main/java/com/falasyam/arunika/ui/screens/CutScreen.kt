@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.falasyam.arunika.model.ClipMediaType
 import com.falasyam.arunika.model.TimelineClip
+import com.falasyam.arunika.ui.components.VideoPlayerView
 
 /**
  * Tab 1: Cut & Assembly Editor
@@ -55,6 +56,8 @@ fun CutScreen(
             TimelineClip("a3", "Voiceover_Dialogue_01.m4a", 7400, 14500, 0xFFD97706, ClipMediaType.AUDIO)
         )
     },
+    currentVideoUri: String? = null,
+    onVideoUriChanged: (String?) -> Unit = {},
     currentTimeMs: Long = 2400,
     isPlaying: Boolean = false,
     onTogglePlay: () -> Unit = {}
@@ -94,6 +97,7 @@ fun CutScreen(
             videoClips = videoClips + newClip
             selectedClipId = newId
             selectedClipMediaType = ClipMediaType.VIDEO
+            onVideoUriChanged(it.toString())
         }
     }
 
@@ -168,36 +172,12 @@ fun CutScreen(
                     .background(Color(0xFF1E1E24)),
                 contentAlignment = Alignment.Center
             ) {
-                // Tampilan konten preview berdasarkan klip aktif
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val icon = when (activeClip?.mediaType) {
-                        ClipMediaType.PHOTO -> Icons.Rounded.Image
-                        ClipMediaType.AUDIO -> Icons.Rounded.GraphicEq
-                        else -> Icons.Rounded.Videocam
-                    }
-                    val typeLabel = when (activeClip?.mediaType) {
-                        ClipMediaType.PHOTO -> "Photo Still Preview [16:9]"
-                        ClipMediaType.AUDIO -> "Audio Master Waveform"
-                        else -> "4K 10-bit Proxy Source [16:9 UHD]"
-                    }
-
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.5f),
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "$typeLabel\n${activeClip?.name ?: "No Clip Selected"}",
-                        color = Color.White.copy(alpha = 0.7f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                // Tampilan preview video nyata menggunakan VideoView
+                VideoPlayerView(
+                    uri = currentVideoUri,
+                    isPlaying = isPlaying,
+                    modifier = Modifier.fillMaxSize()
+                )
 
                 // Timestamp HUD di sudut video
                 Surface(
@@ -572,6 +552,7 @@ fun CutScreen(
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             selectedClipId = clip.id
                                             selectedClipMediaType = clip.mediaType
+                                            onVideoUriChanged(clip.uriString)
                                         }
                                         .padding(8.dp)
                                 ) {

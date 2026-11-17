@@ -98,6 +98,7 @@ fun ArunikaEditorShell(
     val audioState = remember { AudioStudioState() }
     val deliverState = remember { DeliverExportState() }
     var isPlaying by remember { mutableStateOf(false) }
+    var currentVideoUri by remember { mutableStateOf<String?>(null) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
@@ -269,11 +270,16 @@ fun ArunikaEditorShell(
                             ArunikaTab.CUT -> CutScreen(
                                 initialClips = project.videoClips,
                                 initialAudioClips = project.audioClips,
+                                currentVideoUri = currentVideoUri,
+                                onVideoUriChanged = { currentVideoUri = it },
                                 isPlaying = isPlaying,
                                 onTogglePlay = { isPlaying = !isPlaying }
                             )
                             ArunikaTab.COLOR -> ColorStudioScreen(
                                 state = colorStudioState,
+                                videoUri = currentVideoUri,
+                                isPlaying = isPlaying,
+                                onTogglePlay = { isPlaying = !isPlaying },
                                 onNavigateTab = { tabName ->
                                     activeTab = ArunikaTab.valueOf(tabName)
                                 }

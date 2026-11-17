@@ -24,10 +24,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import com.falasyam.arunika.model.*
 import com.falasyam.arunika.ui.components.InteractiveColorWheel
 import com.falasyam.arunika.ui.components.RealtimeScopeMonitor
 import com.falasyam.arunika.ui.components.SplitScreenCompareOverlay
+import com.falasyam.arunika.ui.components.VideoPlayerView
 
 /**
  * Color Studio Pro:
@@ -40,9 +45,29 @@ import com.falasyam.arunika.ui.components.SplitScreenCompareOverlay
 @Composable
 fun ColorStudioScreen(
     state: ColorStudioState = remember { ColorStudioState() },
+    videoUri: String? = null,
+    isPlaying: Boolean = false,
+    onTogglePlay: () -> Unit = {},
     onNavigateTab: (String) -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+
+    // Launcher untuk memilih file LUT (.cube, .3dl) dari file manager
+    val lutPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val content = inputStream?.bufferedReader()?.readText() ?: ""
+                inputStream?.close()
+                val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "custom_lut.cube"
+                state.importLut(content = content, fileName = fileName)
+            } catch (_: Exception) {}
+        }
+    }
+
     var isBypassed by remember { mutableStateOf(false) }
     var selectedColorToolTab by remember { mutableStateOf(0) } // 0: Wheels, 1: CST & LUT, 2: Curves
 
@@ -80,15 +105,11 @@ fun ColorStudioScreen(
                     .background(Color(0xFF1A1A20)),
                 contentAlignment = Alignment.Center
             ) {
-                // Simulasi gambar/video feed
-                Text(
-                    text = if (state.userMediaUri != null)
-                        "📹 Live User Media: ${state.userMediaUri}"
-                    else
-                        "4K 10-bit Samsung Log Source\n[Tap '+ Import' to load your own video]",
-                    color = Color.White.copy(alpha = 0.6f),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium
+                // Video preview nyata — URI dibagikan dari timeline CutScreen
+                VideoPlayerView(
+                    uri = videoUri,
+                    isPlaying = isPlaying,
+                    modifier = Modifier.fillMaxSize()
                 )
 
                 // Split Screen Compare Overlay
@@ -460,16 +481,8 @@ fun ColorStudioScreen(
                                 FilledTonalButton(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        // Contoh simulasi impor file .cube kustom
-                                        state.importLut(
-                                            content = """
-                                                TITLE "Kodak Vision3 500T 5219"
-                                                LUT_3D_SIZE 17
-                                                0.0 0.0 0.0
-                                                1.0 0.95 0.85
-                                            """.trimIndent(),
-                                            fileName = "Kodak_Vision3_500T.cube"
-                                        )
+                                        // Buka file manager untuk memilih file LUT (.cube, .3dl)
+                                        lutPickerLauncher.launch(arrayOf("*/*"))
                                     },
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                                     shape = RoundedCornerShape(12.dp),
