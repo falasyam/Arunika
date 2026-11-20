@@ -132,7 +132,7 @@ fun ColorStudioScreen(
                     onSplitPositionChange = { state.splitPosition = it }
                 )
 
-                // Tombol Play / Pause di sudut bawah tengah monitor
+                // Tombol Play / Pause di sudut bawah tengah video
                 Surface(
                     color = Color.Black.copy(alpha = 0.65f),
                     shape = CircleShape,
@@ -154,104 +154,124 @@ fun ColorStudioScreen(
                         )
                     }
                 }
+            } // Tutup Viewport Video (agar toolbar & scopes selalu berada di pojok monitor luar)
 
-                // Pro Scopes Monitor di sudut kanan atas video
-                RealtimeScopeMonitor(
-                    mode = state.scopeMode,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                )
+            // ========================================================
+            // HUD & TOOLBAR DI POJOK MONITOR (TETAP DI POJOK MESKI 9:16)
+            // ========================================================
 
-                // Floating Toolbar di atas monitor (Scopes, Split-Compare, Import Media)
-                Surface(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp)
+            // 1. Floating Toolbar di pojok kiri atas monitor
+            Surface(
+                color = Color.Black.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    // Tombol Ganti Scopes
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            state.scopeMode = when (state.scopeMode) {
+                                ScopeMode.OFF -> ScopeMode.WAVEFORM
+                                ScopeMode.WAVEFORM -> ScopeMode.VECTORSCOPE
+                                ScopeMode.VECTORSCOPE -> ScopeMode.OFF
+                                else -> ScopeMode.OFF
+                            }
+                        },
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        // Tombol Ganti Scopes
-                        IconButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                state.scopeMode = when (state.scopeMode) {
-                                    ScopeMode.OFF -> ScopeMode.WAVEFORM
-                                    ScopeMode.WAVEFORM -> ScopeMode.VECTORSCOPE
-                                    ScopeMode.VECTORSCOPE -> ScopeMode.OFF
-                                    else -> ScopeMode.OFF
-                                }
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Insights,
-                                contentDescription = "Toggle Scopes",
-                                tint = if (state.scopeMode != ScopeMode.OFF) MaterialTheme.colorScheme.primary else Color.White
-                            )
-                        }
+                        Icon(
+                            Icons.Rounded.Insights,
+                            contentDescription = "Toggle Scopes",
+                            tint = if (state.scopeMode != ScopeMode.OFF) MaterialTheme.colorScheme.primary else Color.White
+                        )
+                    }
 
-                        // Tombol Split Compare
-                        IconButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                state.isSplitCompareEnabled = !state.isSplitCompareEnabled
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Compare,
-                                contentDescription = "Split Screen Compare",
-                                tint = if (state.isSplitCompareEnabled) MaterialTheme.colorScheme.primary else Color.White
-                            )
-                        }
+                    // Tombol Split Compare (Before vs After)
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            state.isSplitCompareEnabled = !state.isSplitCompareEnabled
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Compare,
+                            contentDescription = "Split Screen Compare",
+                            tint = if (state.isSplitCompareEnabled) MaterialTheme.colorScheme.primary else Color.White
+                        )
+                    }
 
-                        // Tombol AI Shot Matcher (Auto Color Balance)
-                        IconButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                // Target frame (sample) vs reference frame
-                                val dummyTarget = FrameColorStats(0.48f, 0.18f, 0.42f, 0.16f, 0.38f, 0.15f, 0.43f, 0.17f)
-                                val idealRef = FrameColorStats(0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f)
-                                val matchResult = ShotMatcher.matchShots(reference = idealRef, target = dummyTarget)
-                                
-                                state.lift.x = matchResult.liftOffsetR
-                                state.lift.y = matchResult.liftOffsetB
-                                state.gain.x = matchResult.gainOffsetR
-                                state.gain.y = matchResult.gainOffsetB
-                                state.gamma.x = matchResult.gammaOffsetR
-                                state.gamma.y = matchResult.gammaOffsetB
-                                state.saturation = matchResult.saturationMultiplier.coerceIn(0.8f, 1.4f)
-                                state.contrast = matchResult.contrastMultiplier.coerceIn(0.9f, 1.3f)
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.AutoFixHigh,
-                                contentDescription = "AI Shot Matcher",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                    // Tombol AI Shot Matcher (Auto Color Balance)
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            // Target frame (sample) vs reference frame
+                            val dummyTarget = FrameColorStats(0.48f, 0.18f, 0.42f, 0.16f, 0.38f, 0.15f, 0.43f, 0.17f)
+                            val idealRef = FrameColorStats(0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f)
+                            val matchResult = ShotMatcher.matchShots(reference = idealRef, target = dummyTarget)
+                            
+                            state.lift.x = matchResult.liftOffsetR
+                            state.lift.y = matchResult.liftOffsetB
+                            state.gain.x = matchResult.gainOffsetR
+                            state.gain.y = matchResult.gainOffsetB
+                            state.gamma.x = matchResult.gammaOffsetR
+                            state.gamma.y = matchResult.gammaOffsetB
+                            state.saturation = matchResult.saturationMultiplier.coerceIn(0.8f, 1.4f)
+                            state.contrast = matchResult.contrastMultiplier.coerceIn(0.9f, 1.3f)
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.AutoFixHigh,
+                            contentDescription = "AI Shot Matcher",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
-                        // Tombol Import Video / Foto
-                        TextButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                state.userMediaUri = "gallery_video_sample_01.mp4"
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Import", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
+                    // Tombol Import Video / Foto
+                    TextButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            state.userMediaUri = "gallery_video_sample_01.mp4"
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Import", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+
+            // 2. Pro Scopes Monitor di pojok kanan atas monitor
+            RealtimeScopeMonitor(
+                mode = state.scopeMode,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+            )
+
+            // 3. Badge Aspek Rasio di pojok kiri bawah monitor
+            Surface(
+                color = Color.Black.copy(alpha = 0.65f),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(10.dp)
+            ) {
+                Text(
+                    text = aspectRatio.label.substringBefore(" "),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                )
             }
         }
 
