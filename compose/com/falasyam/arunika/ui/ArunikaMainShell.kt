@@ -20,6 +20,8 @@ import com.falasyam.arunika.ui.screens.AudioScreen
 import com.falasyam.arunika.ui.screens.CutScreen
 import com.falasyam.arunika.ui.screens.DeliverScreen
 import com.falasyam.arunika.ui.screens.ProjectListScreen
+import com.falasyam.arunika.ui.screens.TitlingScreen
+import com.falasyam.arunika.model.TitlingState
 
 /**
  * Shell Navigasi Global Arunika:
@@ -96,9 +98,23 @@ fun ArunikaEditorShell(
     // Shared Project States
     val colorStudioState = remember { ColorStudioState() }
     val audioState = remember { AudioStudioState() }
+    val titlingState = remember { TitlingState() }
     val deliverState = remember { DeliverExportState() }
     var isPlaying by remember { mutableStateOf(false) }
-    var currentVideoUri by remember { mutableStateOf<String?>(null) }
+    var currentVideoUri by remember(project) { mutableStateOf<String?>(project.videoClips.firstOrNull()?.uriString) }
+
+    // Undo/Redo History (action labels untuk feedback visual)
+    val undoStack = remember { ArrayDeque<String>() }
+    val redoStack = remember { ArrayDeque<String>() }
+    var lastActionLabel by remember { mutableStateOf<String?>(null) }
+    var showUndoToast by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showUndoToast) {
+        if (showUndoToast) {
+            kotlinx.coroutines.delay(1500)
+            showUndoToast = false
+        }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
@@ -150,14 +166,32 @@ fun ArunikaEditorShell(
                     },
                     actions = {
                         // Undo / Redo
-                        IconButton(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }) {
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                if (undoStack.isNotEmpty()) {
+                                    val action = undoStack.removeLast()
+                                    redoStack.addLast(action)
+                                    lastActionLabel = "Undo: $action"
+                                    showUndoToast = true
+                                }
+                            },
+                            enabled = undoStack.isNotEmpty()
+                        ) {
                             Icon(Icons.Rounded.Undo, contentDescription = "Undo")
                         }
-                        IconButton(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }) {
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                if (redoStack.isNotEmpty()) {
+                                    val action = redoStack.removeLast()
+                                    undoStack.addLast(action)
+                                    lastActionLabel = "Redo: $action"
+                                    showUndoToast = true
+                                }
+                            },
+                            enabled = redoStack.isNotEmpty()
+                        ) {
                             Icon(Icons.Rounded.Redo, contentDescription = "Redo")
                         }
 
@@ -204,6 +238,7 @@ fun ArunikaEditorShell(
                                              ArunikaTab.CUT -> Icons.Rounded.ContentCut
                                             ArunikaTab.COLOR -> Icons.Rounded.Palette
                                             ArunikaTab.AUDIO -> Icons.Rounded.GraphicEq
+                                            ArunikaTab.TITLING -> Icons.Rounded.Title
                                             ArunikaTab.DELIVER -> Icons.Rounded.FileDownload
                                         },
                                         contentDescription = tab.title
@@ -242,6 +277,7 @@ fun ArunikaEditorShell(
                                             ArunikaTab.CUT -> Icons.Rounded.ContentCut
                                             ArunikaTab.COLOR -> Icons.Rounded.Palette
                                             ArunikaTab.AUDIO -> Icons.Rounded.GraphicEq
+                                            ArunikaTab.TITLING -> Icons.Rounded.Title
                                             ArunikaTab.DELIVER -> Icons.Rounded.FileDownload
                                         },
                                         contentDescription = tab.title
@@ -270,6 +306,9 @@ fun ArunikaEditorShell(
                             ArunikaTab.CUT -> CutScreen(
                                 initialClips = project.videoClips,
                                 initialAudioClips = project.audioClips,
+                                aspectRatio = project.aspectRatio,
+                                colorStudioState = colorStudioState,
+                                titlingState = titlingState,
                                 currentVideoUri = currentVideoUri,
                                 onVideoUriChanged = { currentVideoUri = it },
                                 isPlaying = isPlaying,
@@ -277,6 +316,7 @@ fun ArunikaEditorShell(
                             )
                             ArunikaTab.COLOR -> ColorStudioScreen(
                                 state = colorStudioState,
+                                aspectRatio = project.aspectRatio,
                                 videoUri = currentVideoUri,
                                 isPlaying = isPlaying,
                                 onTogglePlay = { isPlaying = !isPlaying },
@@ -285,10 +325,42 @@ fun ArunikaEditorShell(
                                 }
                             )
                             ArunikaTab.AUDIO -> AudioScreen(state = audioState)
-                            ArunikaTab.DELIVER -> DeliverScreen(state = deliverState)
+                            ArunikaTab.TITLING -> TitlingScreen(
+                                titlingState = titlingState,
+                                aspectRatio = project.aspectRatio,
+                                videoUri = currentVideoUri
+                            )
+                            ArunikaTab.DELIVER -> DeliverScreen(
+                                state = deliverState,
+                                videoUri = currentVideoUri,
+                                colorStudioState = colorStudioState
+                            )
                         }
                     }
                 }
+            }
+        }
+
+        // Floating HUD Feedback saat Undo / Redo
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showUndoToast && lastActionLabel != null,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { -it }),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { -it }),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 70.dp)
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.inverseSurface,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                tonalElevation = 6.dp
+            ) {
+                Text(
+                    text = lastActionLabel ?: "",
+                    color = MaterialTheme.colorScheme.inverseOnSurface,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
         }
     }

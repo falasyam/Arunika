@@ -330,7 +330,11 @@ fun ArunikaEditorShell(
                                 aspectRatio = project.aspectRatio,
                                 videoUri = currentVideoUri
                             )
-                            ArunikaTab.DELIVER -> DeliverScreen(state = deliverState)
+                            ArunikaTab.DELIVER -> DeliverScreen(
+                                state = deliverState,
+                                videoUri = currentVideoUri,
+                                colorStudioState = colorStudioState
+                            )
                         }
                     }
                 }

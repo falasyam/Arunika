@@ -1,7 +1,9 @@
 package com.falasyam.arunika.ui.screens
 
+import android.net.Uri
+import android.os.Environment
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,29 +16,40 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.transformer.*
+import com.falasyam.arunika.model.ColorStudioState
 import com.falasyam.arunika.model.DeliverExportState
 import com.falasyam.arunika.model.ExportCodec
 import com.falasyam.arunika.model.ExportResolution
+import com.falasyam.arunika.ui.components.ArunikaColorEffect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Tab 4: Deliver & Export
+ * - Real hardware-accelerated video rendering via Media3 Transformer & MediaCodec
+ * - Color grading baked directly into the output video via ArunikaColorEffect (GPU 4x4 matrix)
  * - Pilihan resolusi hingga 4K UHD 60fps
- * - Tagging Color Space Rec.709 vs Rec.2020 HDR
- * - Format H.265 10-bit hardware accelerated via MediaCodec
- * - Simulasi render export dengan estimasi ukuran file
+ * - Format H.264 (AVC) dan H.265 (HEVC 10-bit)
+ * - Real-time progress monitoring & saving directly to device storage
  */
+@OptIn(UnstableApi::class)
 @Composable
 fun DeliverScreen(
-    state: DeliverExportState = remember { DeliverExportState() }
+    state: DeliverExportState = remember { DeliverExportState() },
+    videoUri: String? = null,
+    colorStudioState: ColorStudioState? = null
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     var resolution by state::resolution
@@ -45,6 +58,9 @@ fun DeliverScreen(
     var bitrate by state::bitrateMbps
     var isExporting by state::isExporting
     var progress by state::exportProgress
+
+    var activeTransformer by remember { mutableStateOf<Transformer?>(null) }
+    var lastExportedPath by remember { mutableStateOf<String?>(null) }
 
     // Estimasi ukuran file (durasi 19 detik)
     val estimatedSizeMb = (19 * bitrate / 8).toInt()
@@ -215,9 +231,42 @@ fun DeliverScreen(
             }
         }
 
+        // Informasi file hasil export terakhir
+        if (lastExportedPath != null) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Ekspor Berhasil!",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = lastExportedPath ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 6. Tombol Aksi Ekspor / Progress Bar
+        // 6. Tombol Aksi Ekspor / Progress Bar Nyata
         if (isExporting) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
@@ -241,10 +290,13 @@ fun DeliverScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            activeTransformer?.cancel()
+                            activeTransformer = null
                             isExporting = false
                             progress = 0f
                             state.isExporting = false
                             state.exportProgress = 0f
+                            Toast.makeText(context, "Export dibatalkan", Toast.LENGTH_SHORT).show()
                         }) {
                             Text("Batal")
                         }
@@ -255,34 +307,98 @@ fun DeliverScreen(
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    isExporting = true
-                    progress = 0f
-                    scope.launch {
-                        // Simulasi pipeline render bertahap
-                        val steps = listOf(
-                            0.05f to 300L,  // Init MediaCodec
-                            0.15f to 400L,  // Decode source
-                            0.30f to 500L,  // Apply color grade
-                            0.50f to 600L,  // Encode pass 1
-                            0.70f to 500L,  // Encode pass 2
-                            0.85f to 400L,  // Mux audio
-                            0.95f to 300L,  // Finalize container
-                            1.00f to 200L   // Write to storage
-                        )
-                        for ((target, duration) in steps) {
-                            val start = progress
-                            val diff = target - start
-                            val stepMs = 16L
-                            val iterations = (duration / stepMs).coerceAtLeast(1)
-                            repeat(iterations.toInt()) { i ->
-                                progress = start + diff * (i.toFloat() / iterations)
-                                delay(stepMs)
+                    if (videoUri == null) {
+                        Toast.makeText(context, "Pilih klip video di tab Cut terlebih dahulu untuk diekspor!", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+
+                    try {
+                        val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+                        val outputFileName = "Arunika_Master_${System.currentTimeMillis()}.mp4"
+                        val outputFile = File(moviesDir, outputFileName)
+
+                        isExporting = true
+                        progress = 0.01f
+                        state.isExporting = true
+                        state.exportProgress = 0.01f
+
+                        val mediaItem = MediaItem.fromUri(Uri.parse(videoUri))
+                        val effectsList = mutableListOf<androidx.media3.common.Effect>()
+
+                        // Terapkan color grading effect jika ada
+                        if (colorStudioState != null) {
+                            val colorEffect = ArunikaColorEffect(colorStudioState)
+                            if (!colorEffect.isNoOp()) {
+                                effectsList.add(colorEffect)
                             }
-                            progress = target
                         }
-                        delay(500L)
+
+                        val editedMediaItem = EditedMediaItem.Builder(mediaItem)
+                            .setEffects(Effects(emptyList(), effectsList))
+                            .build()
+
+                        val selectedVideoMime = if (codec == ExportCodec.H265_10BIT) {
+                            MimeTypes.VIDEO_H265
+                        } else {
+                            MimeTypes.VIDEO_H264
+                        }
+
+                        val transformer = Transformer.Builder(context)
+                            .setVideoMimeType(selectedVideoMime)
+                            .addListener(object : Transformer.Listener {
+                                override fun onCompleted(composition: androidx.media3.transformer.Composition, exportResult: ExportResult) {
+                                    isExporting = false
+                                    progress = 1.0f
+                                    state.isExporting = false
+                                    state.exportProgress = 1.0f
+                                    activeTransformer = null
+                                    lastExportedPath = outputFile.absolutePath
+
+                                    android.media.MediaScannerConnection.scanFile(
+                                        context,
+                                        arrayOf(outputFile.absolutePath),
+                                        arrayOf("video/mp4"),
+                                        null
+                                    )
+                                    Toast.makeText(context, "Export Berhasil: ${outputFile.name}", Toast.LENGTH_LONG).show()
+                                }
+
+                                override fun onError(
+                                    composition: androidx.media3.transformer.Composition,
+                                    exportResult: ExportResult,
+                                    exportException: ExportException
+                                ) {
+                                    isExporting = false
+                                    progress = 0f
+                                    state.isExporting = false
+                                    state.exportProgress = 0f
+                                    activeTransformer = null
+                                    Toast.makeText(context, "Gagal merender: ${exportException.message}", Toast.LENGTH_LONG).show()
+                                }
+                            })
+                            .build()
+
+                        activeTransformer = transformer
+                        transformer.start(editedMediaItem, outputFile.absolutePath)
+
+                        // Polling progress MediaCodec nyata
+                        scope.launch {
+                            val progressHolder = ProgressHolder()
+                            while (isExporting) {
+                                val progressState = transformer.getProgress(progressHolder)
+                                if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
+                                    progress = (progressHolder.progress / 100f).coerceIn(0f, 0.99f)
+                                    state.exportProgress = progress
+                                }
+                                delay(150L)
+                            }
+                        }
+                    } catch (e: Exception) {
                         isExporting = false
                         progress = 0f
+                        state.isExporting = false
+                        state.exportProgress = 0f
+                        Toast.makeText(context, "Error memulai export: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 },
                 modifier = Modifier
