@@ -43,7 +43,7 @@ jobs:
       - name: 🚀 Build APK with Gradle
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: 📦 Prepare Release Artifacts
+      - name: 📦 Prepare Release Artifacts & Dynamic Changelog
         id: prepare_apk
         run: |
           BUILD_NUM=${{ github.run_number }}
@@ -57,6 +57,44 @@ jobs:
           echo "apk_name=${APK_NAME}" >> $GITHUB_OUTPUT
           echo "size=$(stat -c%s "${APK_NAME}")" >> $GITHUB_OUTPUT
 
+          # Buat dynamic release body markdown dengan detail perubahan baru
+          cat << 'EOF' > release_body.md
+          ## 🎬 Arunika — Automated Build (${{ github.run_number }})
+
+          **Commit:** [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) | **Branch:** `${{ github.ref_name }}`
+
+          ### 📌 Ringkasan Komit Terbaru:
+          EOF
+
+          # Pesan komit terbaru
+          git log -1 --pretty=format:"**%s**%n%n%b" ${{ github.sha }} >> release_body.md
+          echo "" >> release_body.md
+          echo "" >> release_body.md
+
+          # Riwayat perubahan sejak rilis sebelumnya atau komit terakhir
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            echo "### 🔄 Perubahan Baru Sejak $PREV_TAG:" >> release_body.md
+            git log ${PREV_TAG}..HEAD --no-merges --pretty=format:"- **%s** ([%h](https://github.com/${{ github.repository }}/commit/%H)) - _@%an_" >> release_body.md
+          else
+            echo "### 🔄 Riwayat Perubahan Terbaru:" >> release_body.md
+            git log -n 10 --no-merges --pretty=format:"- **%s** ([%h](https://github.com/${{ github.repository }}/commit/%H)) - _@%an_" >> release_body.md
+          fi
+          echo "" >> release_body.md
+          echo "" >> release_body.md
+
+          cat << 'EOF' >> release_body.md
+          ### 📁 Berkas yang Dimodifikasi pada Komit Ini:
+          ```diff
+          EOF
+          git diff-tree --no-commit-id --name-status -r ${{ github.sha }} >> release_body.md
+          cat << 'EOF' >> release_body.md
+          ```
+
+          ### 📲 Unduh & Pasang:
+          Unduh file installer **`${{ steps.prepare_apk.outputs.apk_name }}`** di bawah ini dan pasang di perangkat Android Anda (Android 8.0+ / API 26+).
+          EOF
+
       - name: 📤 Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -69,22 +107,8 @@ jobs:
         with:
           tag_name: ${{ steps.prepare_apk.outputs.tag }}
           name: "Arunika Release ${{ steps.prepare_apk.outputs.tag }}"
-          body: |
-            ## 🎬 Arunika — Automated Build (${{ steps.prepare_apk.outputs.tag }})
-            
-            Build otomatis dihasilkan dari commit: `${{ github.sha }}`
-            
-            ### ✨ Fitur Terbaru Termasuk:
-            - **Color Studio**: DaVinci Resolve Node Tree, 3-Way Wheels, dan Pro Scopes.
-            - **Multi-Format LUT Importer**: Dukungan file `.cube`, `.3dl`, `.vlt`, dan Hald `.png`.
-            - **Titling & Track V2**: Overlay teks sinematik & viral subtitles dengan word highlight.
-            - **Keyframing Engine**: Diamond markers `◆` & efek Ken Burns dynamic push-in zoom.
-            - **GPU 32-bit Shader**: Rendering GLSL ES 3.0 & arsitektur C++ NDK hardware.
-            - **Multi-Aspect Ratio & Custom**: Preset 16:9 Cinema, 9:16 Shorts/TikTok (safe-zone), 4:5 IG, 1:1, 4:3, 21:9 Scope, dan dimensi piksel kustom bebas.
-            - **AI Shot Matcher**: Auto color balancing antar klip kamera.
-            
-            ### 📲 Download APK:
-            Unduh file installer **`${{ steps.prepare_apk.outputs.apk_name }}`** di bawah ini dan pasang di perangkat Android Anda (Android 8.0+ / API 26+).
+          body_path: release_body.md
+          generate_release_notes: true
           files: ${{ steps.prepare_apk.outputs.apk_name }}
           draft: false
           prerelease: false
