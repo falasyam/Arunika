@@ -34,16 +34,29 @@ interface IShaderEngine {
  */
 class NativeGpuShaderEngine : IShaderEngine {
     companion object {
+        var isLibraryLoaded = false
+            private set
         init {
-            System.loadLibrary("arunika_native_engine")
+            try {
+                System.loadLibrary("arunika_native_engine")
+                isLibraryLoaded = true
+            } catch (t: Throwable) {
+                android.util.Log.e("NativeGpuShaderEngine", "Failed to load arunika_native_engine: ${t.message}")
+                isLibraryLoaded = false
+            }
         }
     }
 
     private var isInitialized = false
 
     override fun initialize(width: Int, height: Int) {
-        nativeInit(width, height)
-        isInitialized = true
+        if (!isLibraryLoaded) return
+        try {
+            nativeInit(width, height)
+            isInitialized = true
+        } catch (t: Throwable) {
+            isInitialized = false
+        }
     }
 
     override fun setUniforms(params: GpuGradeUniforms) {

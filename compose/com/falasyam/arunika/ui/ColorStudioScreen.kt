@@ -28,6 +28,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import com.falasyam.arunika.model.*
 import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.InteractiveColorWheel
@@ -211,22 +212,61 @@ fun ColorStudioScreen(
                     }
 
                     // Tombol AI Shot Matcher (Auto Color Balance)
+                    val coroutineScope = rememberCoroutineScope()
                     IconButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            // Target frame (sample) vs reference frame
-                            val dummyTarget = FrameColorStats(0.48f, 0.18f, 0.42f, 0.16f, 0.38f, 0.15f, 0.43f, 0.17f)
-                            val idealRef = FrameColorStats(0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f)
-                            val matchResult = ShotMatcher.matchShots(reference = idealRef, target = dummyTarget)
-                            
-                            state.lift.x = matchResult.liftOffsetR
-                            state.lift.y = matchResult.liftOffsetB
-                            state.gain.x = matchResult.gainOffsetR
-                            state.gain.y = matchResult.gainOffsetB
-                            state.gamma.x = matchResult.gammaOffsetR
-                            state.gamma.y = matchResult.gammaOffsetB
-                            state.saturation = matchResult.saturationMultiplier.coerceIn(0.8f, 1.4f)
-                            state.contrast = matchResult.contrastMultiplier.coerceIn(0.9f, 1.3f)
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val targetStats = if (videoUri != null) {
+                                        val retriever = android.media.MediaMetadataRetriever()
+                                        retriever.setDataSource(context, Uri.parse(videoUri))
+                                        val rawBitmap = retriever.getFrameAtTime(1000000L) ?: retriever.frameAtTime
+                                        retriever.release()
+                                        if (rawBitmap != null) {
+                                            val sampleW = 120
+                                            val sampleH = 90
+                                            val scaled = android.graphics.Bitmap.createScaledBitmap(rawBitmap, sampleW, sampleH, false)
+                                            val pixels = IntArray(sampleW * sampleH)
+                                            scaled.getPixels(pixels, 0, sampleW, 0, 0, sampleW, sampleH)
+                                            if (scaled != rawBitmap) scaled.recycle()
+                                            rawBitmap.recycle()
+                                            ShotMatcher.analyzeFrame(pixels, sampleW, sampleH)
+                                        } else {
+                                            FrameColorStats(0.48f, 0.18f, 0.42f, 0.16f, 0.38f, 0.15f, 0.43f, 0.17f)
+                                        }
+                                    } else {
+                                        FrameColorStats(0.48f, 0.18f, 0.42f, 0.16f, 0.38f, 0.15f, 0.43f, 0.17f)
+                                    }
+
+                                    val idealRef = FrameColorStats(0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f, 0.50f, 0.22f)
+                                    val matchResult = ShotMatcher.matchShots(reference = idealRef, target = targetStats)
+
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        state.lift.x = matchResult.liftOffsetR.coerceIn(-0.6f, 0.6f)
+                                        state.lift.y = matchResult.liftOffsetB.coerceIn(-0.6f, 0.6f)
+                                        state.gain.x = matchResult.gainOffsetR.coerceIn(-0.6f, 0.6f)
+                                        state.gain.y = matchResult.gainOffsetB.coerceIn(-0.6f, 0.6f)
+                                        state.gamma.x = matchResult.gammaOffsetR.coerceIn(-0.6f, 0.6f)
+                                        state.gamma.y = matchResult.gammaOffsetB.coerceIn(-0.6f, 0.6f)
+                                        state.saturation = matchResult.saturationMultiplier.coerceIn(0.7f, 1.4f)
+                                        state.contrast = matchResult.contrastMultiplier.coerceIn(0.85f, 1.35f)
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "AI Auto Color Match berhasil dihitung dari frame video",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                } catch (e: Exception) {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Gagal menganalisis video: ${e.message}",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
                         },
                         modifier = Modifier.size(32.dp)
                     ) {

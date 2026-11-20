@@ -34,39 +34,74 @@ interface IShaderEngine {
  */
 class NativeGpuShaderEngine : IShaderEngine {
     companion object {
+        var isLibraryLoaded = false
+            private set
         init {
-            // System.loadLibrary("arunika_native_engine")
+            try {
+                System.loadLibrary("arunika_native_engine")
+                isLibraryLoaded = true
+            } catch (t: Throwable) {
+                android.util.Log.e("NativeGpuShaderEngine", "Failed to load arunika_native_engine: ${t.message}")
+                isLibraryLoaded = false
+            }
         }
     }
 
     private var isInitialized = false
 
     override fun initialize(width: Int, height: Int) {
-        // nativeInit(width, height)
-        isInitialized = true
+        if (!isLibraryLoaded) return
+        try {
+            nativeInit(width, height)
+            isInitialized = true
+        } catch (t: Throwable) {
+            isInitialized = false
+        }
     }
 
     override fun setUniforms(params: GpuGradeUniforms) {
-        // nativeSetUniforms(...)
+        if (!isInitialized) return
+        nativeSetUniforms(
+            params.liftR, params.liftG, params.liftB,
+            params.gammaR, params.gammaG, params.gammaB,
+            params.gainR, params.gainG, params.gainB,
+            params.offsetR, params.offsetG, params.offsetB,
+            params.temperature,
+            params.contrast, params.saturation,
+            params.vignette,
+            params.useLut3D,
+            params.lutIntensity
+        )
     }
 
     override fun load3dLutTexture(lutData: FloatArray, size: Int) {
-        // nativeUpload3dLut(lutData, size)
+        if (!isInitialized) return
+        nativeUpload3dLut(lutData, size)
     }
 
     override fun renderFrame(sourceTextureId: Int, targetFboId: Int) {
-        // nativeRender(sourceTextureId, targetFboId)
+        if (!isInitialized) return
+        nativeRender(sourceTextureId, targetFboId)
     }
 
     override fun release() {
-        // nativeRelease()
+        if (isInitialized) nativeRelease()
         isInitialized = false
     }
 
     // C++ JNI Declarations
-    // private external fun nativeInit(width: Int, height: Int)
-    // private external fun nativeSetUniforms(...)
-    // private external fun nativeUpload3dLut(data: FloatArray, size: Int)
-    // private external fun nativeRender(srcTex: Int, dstFbo: Int)
-    // private external fun nativeRelease()
+    private external fun nativeInit(width: Int, height: Int)
+    private external fun nativeSetUniforms(
+        liftR: Float, liftG: Float, liftB: Float,
+        gammaR: Float, gammaG: Float, gammaB: Float,
+        gainR: Float, gainG: Float, gainB: Float,
+        offsetR: Float, offsetG: Float, offsetB: Float,
+        temperature: Float,
+        contrast: Float, saturation: Float,
+        vignette: Float,
+        useLut3D: Boolean, lutIntensity: Float
+    )
+    private external fun nativeUpload3dLut(data: FloatArray, size: Int)
+    private external fun nativeRender(srcTex: Int, dstFbo: Int)
+    private external fun nativeRelease()
 }
