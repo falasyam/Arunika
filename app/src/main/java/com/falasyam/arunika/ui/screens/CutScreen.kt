@@ -229,9 +229,11 @@ fun CutScreen(
                 contentAlignment = Alignment.Center
             ) {
                 // Tampilan preview video nyata menggunakan ExoPlayer
+                // ✅ Fix #1: colorStudioState diteruskan ke VideoPlayerView untuk grading GPU
                 VideoPlayerView(
                     uri = currentVideoUri,
                     isPlaying = isPlaying,
+                    colorState = colorStudioState,
                     modifier = Modifier.fillMaxSize()
                 )
 

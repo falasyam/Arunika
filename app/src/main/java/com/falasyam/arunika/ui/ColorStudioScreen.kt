@@ -110,13 +110,15 @@ fun ColorStudioScreen(
                 contentAlignment = Alignment.Center
             ) {
                 // Video preview nyata — URI dibagikan dari timeline CutScreen
+                // ✅ Fix #1: colorState diteruskan agar grading diproses GPU per frame
                 VideoPlayerView(
                     uri = videoUri,
                     isPlaying = isPlaying,
+                    colorState = if (!isBypassed) state else null,
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Real-time Color Grading Effect Overlay (Wheels, LUT, CST, Luma)
+                // Split-Screen label overlay BEFORE / AFTER (canvas ringan, bukan grading)
                 ColorGradingOverlay(
                     state = state,
                     isBypassed = isBypassed,

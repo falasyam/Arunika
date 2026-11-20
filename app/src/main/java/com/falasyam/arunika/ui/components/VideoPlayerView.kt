@@ -17,22 +17,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.RgbMatrix
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.falasyam.arunika.model.ColorStudioState
 
 /**
  * Komponen pemutaran video modern menggunakan AndroidView + ExoPlayer (Media3).
- * - Mendukung play/pause real via ExoPlayer
- * - Seek ke posisi playhead sinkron
- * - Error state jika format tidak didukung
- * - Placeholder informatif saat belum ada klip dipilih
+ *
+ * ✅ Fix #1 — Real Color Grading Pipeline:
+ *    - Menerima [colorState] opsional.
+ *    - Jika diberikan, ExoPlayer menggunakan [setVideoEffects] dengan [ArunikaColorEffect]
+ *      sehingga setiap frame video diproses nyata di GPU dengan 4×4 color matrix
+ *      (Lift/Gamma/Gain/Temperature/Saturation/LUT) sebelum ditampilkan.
+ *    - Efek diperbarui setiap kali parameter color berubah (ExoPlayer replaceVideoEffects).
+ *
+ * Fitur lain:
+ *    - Play/Pause real via ExoPlayer
+ *    - Seek ke posisi playhead sinkron
+ *    - Error state jika format tidak didukung
+ *    - Placeholder informatif saat belum ada klip dipilih
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerView(
     uri: String?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     seekToMs: Long = 0L,
+    colorState: ColorStudioState? = null,
     onDurationReady: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -65,6 +79,25 @@ fun VideoPlayerView(
 
                 DisposableEffect(exoPlayer) {
                     onDispose { exoPlayer.release() }
+                }
+
+                // ============================================================
+                // ✅ Fix #1: Terapkan color grading effect nyata ke ExoPlayer
+                //    ArunikaColorEffect membangun 4×4 matrix dari ColorStudioState
+                //    yang dijalankan GPU pada setiap frame video.
+                // ============================================================
+                if (colorState != null) {
+                    // Snapshot key — berubah setiap kali parameter warna berubah
+                    val effectKey = rememberColorEffectKey(colorState)
+                    LaunchedEffect(effectKey) {
+                        val effect = ArunikaColorEffect(colorState)
+                        // isNoOp() = true → ExoPlayer skip efek (zero overhead)
+                        if (!effect.isNoOp()) {
+                            exoPlayer.setVideoEffects(listOf(effect))
+                        } else {
+                            exoPlayer.setVideoEffects(emptyList())
+                        }
+                    }
                 }
 
                 // Sync play/pause state
@@ -134,5 +167,28 @@ fun VideoPlayerView(
                 )
             }
         }
+    }
+}
+
+/**
+ * Menghasilkan key string yang berubah setiap kali ada perubahan parameter color grading.
+ * Digunakan sebagai trigger [LaunchedEffect] untuk memperbarui [ExoPlayer.setVideoEffects].
+ */
+@Composable
+private fun rememberColorEffectKey(state: ColorStudioState): String {
+    val n = state.activeNode
+    return remember(
+        n.lift.x, n.lift.y, n.lift.luminance,
+        n.gamma.x, n.gamma.y, n.gamma.luminance,
+        n.gain.x, n.gain.y, n.gain.luminance,
+        n.temperature, n.saturation, n.contrast,
+        n.selectedLut?.id, n.lutIntensity,
+        state.inputLogProfile
+    ) {
+        "${n.lift.x},${n.lift.y},${n.lift.luminance}|" +
+        "${n.gamma.x},${n.gamma.y},${n.gamma.luminance}|" +
+        "${n.gain.x},${n.gain.y},${n.gain.luminance}|" +
+        "${n.temperature},${n.saturation},${n.contrast}|" +
+        "${n.selectedLut?.id},${n.lutIntensity}|${state.inputLogProfile}"
     }
 }

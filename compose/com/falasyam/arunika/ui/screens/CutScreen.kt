@@ -1,5 +1,7 @@
-﻿package com.falasyam.arunika.ui.screens
+package com.falasyam.arunika.ui.screens
 
+import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,16 +23,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.falasyam.arunika.model.ClipMediaType
-import com.falasyam.arunika.model.TimelineClip
+import kotlin.math.roundToInt
+import com.falasyam.arunika.model.*
+import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.VideoPlayerView
 
 /**
@@ -42,42 +47,48 @@ import com.falasyam.arunika.ui.components.VideoPlayerView
  */
 @Composable
 fun CutScreen(
-    initialClips: List<TimelineClip> = remember {
-        listOf(
-            TimelineClip("v1", "A001_C001_SamsungLog.mp4", 4200, 0, 0xFF3B82F6, ClipMediaType.VIDEO),
-            TimelineClip("v2", "A001_C002_Sunset_B-Roll.mp4", 6800, 4200, 0xFF10B981, ClipMediaType.VIDEO),
-            TimelineClip("v3", "Still_Tokyo_Tower.jpg", 3500, 11000, 0xFF8B5CF6, ClipMediaType.PHOTO),
-            TimelineClip("v4", "A001_C003_Interview_A_Cam.mp4", 8500, 14500, 0xFFF59E0B, ClipMediaType.VIDEO)
-        )
-    },
-    initialAudioClips: List<TimelineClip> = remember {
-        listOf(
-            TimelineClip("a1", "BGM_Cinematic_Ambient.mp3", 14000, 0, 0xFF059669, ClipMediaType.AUDIO),
-            TimelineClip("a2", "SFX_Whoosh_Transition.wav", 1500, 4100, 0xFFEA580C, ClipMediaType.AUDIO),
-            TimelineClip("a3", "Voiceover_Dialogue_01.m4a", 7400, 14500, 0xFFD97706, ClipMediaType.AUDIO)
-        )
-    },
+    initialClips: List<TimelineClip> = emptyList(),
+    initialAudioClips: List<TimelineClip> = emptyList(),
+    aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
+    colorStudioState: ColorStudioState? = null,
+    titlingState: TitlingState? = null,
     currentVideoUri: String? = null,
     onVideoUriChanged: (String?) -> Unit = {},
-    currentTimeMs: Long = 2400,
+    currentTimeMs: Long = 0L,
     isPlaying: Boolean = false,
     onTogglePlay: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     // State Klip Video & Foto (Track V1)
-    var videoClips by remember { mutableStateOf(initialClips) }
+    var videoClips by remember(initialClips) { mutableStateOf(initialClips) }
 
     // State Klip Audio (Track A1) pada Timeline yang sama
-    var audioClips by remember { mutableStateOf(initialAudioClips) }
+    var audioClips by remember(initialAudioClips) { mutableStateOf(initialAudioClips) }
 
     // ID dan Tipe klip yang sedang aktif dipilih
-    var selectedClipId by remember { mutableStateOf("v1") }
+    var selectedClipId by remember(initialClips, initialAudioClips) {
+        mutableStateOf(initialClips.firstOrNull()?.id ?: initialAudioClips.firstOrNull()?.id ?: "")
+    }
     var selectedClipMediaType by remember { mutableStateOf(ClipMediaType.VIDEO) }
 
     var nextIdCounter by remember { mutableStateOf(10) }
     var showImportDialog by remember { mutableStateOf(false) }
     var importDialogInitialTab by remember { mutableStateOf(0) } // 0: Video/Foto, 1: Audio
+
+    // Helper untuk mengekstrak durasi media fisik dari URI
+    fun extractMediaDurationMs(uri: Uri, defaultDuration: Long): Long {
+        return try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(context, uri)
+            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            retriever.release()
+            durationStr?.toLongOrNull()?.coerceAtLeast(500L) ?: defaultDuration
+        } catch (_: Exception) {
+            defaultDuration
+        }
+    }
 
     // Android ActivityResult Pickers untuk file fisik dari perangkat
     val videoPickerLauncher = rememberLauncherForActivityResult(
@@ -85,11 +96,12 @@ fun CutScreen(
     ) { uri: Uri? ->
         uri?.let {
             val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "Video_${System.currentTimeMillis()}.mp4"
+            val realDuration = extractMediaDurationMs(it, 5000L)
             val newId = "v${nextIdCounter++}"
             val newClip = TimelineClip(
                 id = newId,
                 name = fileName,
-                durationMs = 5000,
+                durationMs = realDuration,
                 startOffsetMs = videoClips.sumOf { c -> c.durationMs },
                 colorTag = 0xFF0284C7,
                 mediaType = ClipMediaType.VIDEO,
@@ -128,11 +140,12 @@ fun CutScreen(
     ) { uri: Uri? ->
         uri?.let {
             val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "Audio_${System.currentTimeMillis()}.mp3"
+            val realDuration = extractMediaDurationMs(it, 8000L)
             val newId = "a${nextIdCounter++}"
             val newClip = TimelineClip(
                 id = newId,
                 name = fileName,
-                durationMs = 8000,
+                durationMs = realDuration,
                 startOffsetMs = audioClips.sumOf { c -> c.durationMs },
                 colorTag = 0xFF059669,
                 mediaType = ClipMediaType.AUDIO,
@@ -169,8 +182,8 @@ fun CutScreen(
     LaunchedEffect(currentPlayheadMs, isPlaying) {
         if (isPlaying) {
             val playheadPx = with(density) { (60.dp + (currentPlayheadMs / 30f).dp).toPx() }
-            val viewWidthPx = with(density) { 360.dp.toPx() }
-            val scrollTarget = (playheadPx - viewWidthPx / 2).toInt().coerceAtLeast(0)
+            val viewportWidth = if (timelineScroll.viewportSize > 0) timelineScroll.viewportSize else with(density) { 360.dp.toPx().toInt() }
+            val scrollTarget = (playheadPx - viewportWidth / 2).toInt().coerceAtLeast(0)
             if (kotlin.math.abs(timelineScroll.value - scrollTarget) > 15) {
                 timelineScroll.scrollTo(scrollTarget)
             }
@@ -193,9 +206,9 @@ fun CutScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // ========================================================
+        // ============================================
         // 1. AREA MONITOR PREVIEW VIDEO & HUD
-        // ========================================================
+        // ============================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -203,21 +216,93 @@ fun CutScreen(
                 .background(Color(0xFF0F0F11)),
             contentAlignment = Alignment.Center
         ) {
-            // Bingkai aspek rasio video (16:9)
+            val ratio = aspectRatio.ratioFloat
+
+            // Bingkai aspek rasio video responsif (16:9, 9:16, 1:1, 4:5, 21:9)
             Box(
                 modifier = Modifier
-                    .aspectRatio(16f / 9f)
-                    .fillMaxHeight(0.85f)
+                    .padding(8.dp)
+                    .aspectRatio(ratio, matchHeightConstraintsFirst = aspectRatio.isVertical)
+                    .fillMaxHeight(if (aspectRatio.isVertical) 0.94f else 0.88f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF1E1E24)),
                 contentAlignment = Alignment.Center
             ) {
-                // Tampilan preview video nyata menggunakan VideoView
+                // Tampilan preview video nyata menggunakan ExoPlayer
+                // ✅ Fix #1: colorStudioState diteruskan ke VideoPlayerView untuk grading GPU
                 VideoPlayerView(
                     uri = currentVideoUri,
                     isPlaying = isPlaying,
+                    colorState = colorStudioState,
                     modifier = Modifier.fillMaxSize()
                 )
+
+                // 1. Real-time Color Grading Effect Overlay (Wheels, LUT, CST, Luma)
+                if (colorStudioState != null) {
+                    ColorGradingOverlay(
+                        state = colorStudioState,
+                        isBypassed = false,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // 2. Real-time Track V2 Title / Subtitle Overlay dari Fusion Lite
+                titlingState?.elements?.forEach { element ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .offset {
+                                IntOffset(
+                                    (element.x * 240).roundToInt(),
+                                    (element.y * 160).roundToInt()
+                                )
+                            }
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(element.bgColor))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        if (element.wordHighlight) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                element.text.split(" ").forEachIndexed { i, word ->
+                                    Text(
+                                        text = word,
+                                        fontSize = (element.fontSize * 0.85f).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (i == 1) Color(element.highlightColor) else Color(element.textColor)
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = element.text,
+                                fontSize = (element.fontSize * 0.85f).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(element.textColor),
+                                fontFamily = when (element.font) {
+                                    TitleFont.SERIF -> FontFamily.Serif
+                                    TitleFont.MONO -> FontFamily.Monospace
+                                    else -> FontFamily.Default
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Badge Format Aspek Rasio di sudut kiri atas video
+                Surface(
+                    color = Color.Black.copy(alpha = 0.65f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = aspectRatio.label.substringBefore(" "),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
 
                 // Timestamp HUD di sudut video
                 Surface(
@@ -292,8 +377,12 @@ fun CutScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                val hasSelectedClip = if (selectedClipMediaType == ClipMediaType.AUDIO) audioClips.any { it.id == selectedClipId } else videoClips.any { it.id == selectedClipId }
+                val canDelete = if (selectedClipMediaType == ClipMediaType.AUDIO) audioClips.isNotEmpty() else videoClips.isNotEmpty()
+
                 // 1. Split Clip (Video/Foto atau Audio)
-                IconButton(onClick = {
+                IconButton(
+                    onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     if (selectedClipMediaType == ClipMediaType.AUDIO) {
                         val idx = audioClips.indexOfFirst { it.id == selectedClipId }
@@ -303,12 +392,14 @@ fun CutScreen(
                                 val half = target.durationMs / 2
                                 val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_pt1")
                                 val newId = "a${nextIdCounter++}"
-                                val part2 = target.copy(id = newId, durationMs = half, name = "${target.name.substringBeforeLast(".")}_pt2")
+                                val part2 = target.copy(id = newId, durationMs = target.durationMs - half, startOffsetMs = target.startOffsetMs + half, name = "${target.name.substringBeforeLast(".")}_pt2")
                                 val mutable = audioClips.toMutableList()
                                 mutable.removeAt(idx)
                                 mutable.add(idx, part1)
                                 mutable.add(idx + 1, part2)
-                                audioClips = mutable
+                                // Recalculate semua startOffsetMs agar tidak ada gap/overlap
+                                var offset = 0L
+                                audioClips = mutable.mapIndexed { i, c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = newId
                             }
                         }
@@ -320,22 +411,27 @@ fun CutScreen(
                                 val half = target.durationMs / 2
                                 val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_part1")
                                 val newId = "v${nextIdCounter++}"
-                                val part2 = target.copy(id = newId, durationMs = half, name = "${target.name.substringBeforeLast(".")}_part2")
+                                val part2 = target.copy(id = newId, durationMs = target.durationMs - half, startOffsetMs = target.startOffsetMs + half, name = "${target.name.substringBeforeLast(".")}_part2")
                                 val mutable = videoClips.toMutableList()
                                 mutable.removeAt(idx)
                                 mutable.add(idx, part1)
                                 mutable.add(idx + 1, part2)
-                                videoClips = mutable
+                                // Recalculate semua startOffsetMs agar tidak ada gap/overlap
+                                var offset = 0L
+                                videoClips = mutable.mapIndexed { i, c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = newId
                             }
                         }
                     }
-                }) {
+                    },
+                    enabled = hasSelectedClip
+                ) {
                     Icon(Icons.Rounded.ContentCut, contentDescription = "Split Klip")
                 }
 
                 // 2. Ripple Delete
-                IconButton(onClick = {
+                IconButton(
+                    onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     if (selectedClipMediaType == ClipMediaType.AUDIO) {
                         if (audioClips.size > 1) {
@@ -343,7 +439,8 @@ fun CutScreen(
                             if (idx != -1) {
                                 val mutable = audioClips.toMutableList()
                                 mutable.removeAt(idx)
-                                audioClips = mutable
+                                var offset = 0L
+                                audioClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = audioClips[maxOf(0, idx - 1)].id
                             }
                         }
@@ -353,17 +450,21 @@ fun CutScreen(
                             if (idx != -1) {
                                 val mutable = videoClips.toMutableList()
                                 mutable.removeAt(idx)
-                                videoClips = mutable
+                                var offset = 0L
+                                videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                                 selectedClipId = videoClips[maxOf(0, idx - 1)].id
                             }
                         }
                     }
-                }) {
+                    },
+                    enabled = canDelete
+                ) {
                     Icon(Icons.Rounded.DeleteSweep, contentDescription = "Ripple Delete")
                 }
 
                 // 3. Speed / Duration Toggle
-                IconButton(onClick = {
+                IconButton(
+                    onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     if (selectedClipMediaType == ClipMediaType.AUDIO) {
                         val idx = audioClips.indexOfFirst { it.id == selectedClipId }
@@ -378,19 +479,30 @@ fun CutScreen(
                         val idx = videoClips.indexOfFirst { it.id == selectedClipId }
                         if (idx != -1) {
                             val target = videoClips[idx]
-                            val newDur = if (target.durationMs > 3000) target.durationMs / 2 else target.durationMs * 2
+                            val newSpeed = when (target.speedMultiplier) {
+                                1.0f -> 1.5f
+                                1.5f -> 2.0f
+                                2.0f -> 0.5f
+                                else -> 1.0f
+                            }
+                            val baseDuration = (target.durationMs * target.speedMultiplier).toLong()
+                            val newDur = (baseDuration / newSpeed).toLong().coerceAtLeast(500L)
                             val mutable = videoClips.toMutableList()
-                            mutable[idx] = target.copy(durationMs = newDur)
-                            videoClips = mutable
+                            mutable[idx] = target.copy(durationMs = newDur, speedMultiplier = newSpeed)
+                            var offset = 0L
+                            videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                         }
                     }
-                }) {
+                    },
+                    enabled = hasSelectedClip
+                ) {
                     val icon = if (selectedClipMediaType == ClipMediaType.AUDIO) Icons.Rounded.VolumeUp else Icons.Rounded.Speed
                     Icon(icon, contentDescription = "Speed / Volume")
                 }
 
                 // 4. Duplicate
-                IconButton(onClick = {
+                IconButton(
+                    onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     if (selectedClipMediaType == ClipMediaType.AUDIO) {
                         val idx = audioClips.indexOfFirst { it.id == selectedClipId }
@@ -400,7 +512,8 @@ fun CutScreen(
                             val dup = target.copy(id = newId, name = "${target.name.substringBeforeLast(".")}_copy")
                             val mutable = audioClips.toMutableList()
                             mutable.add(idx + 1, dup)
-                            audioClips = mutable
+                            var offset = 0L
+                            audioClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                             selectedClipId = newId
                         }
                     } else {
@@ -411,7 +524,8 @@ fun CutScreen(
                             val dup = target.copy(id = newId, name = "${target.name.substringBeforeLast(".")}_copy")
                             val mutable = videoClips.toMutableList()
                             mutable.add(idx + 1, dup)
-                            videoClips = mutable
+                            var offset = 0L
+                            videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
                             selectedClipId = newId
                         }
                     }
@@ -576,62 +690,98 @@ fun CutScreen(
                         ) {
                             Spacer(modifier = Modifier.width(60.dp))
 
-                            videoClips.forEach { clip ->
-                                val isSelected = clip.id == selectedClipId && selectedClipMediaType != ClipMediaType.AUDIO
-                                val clipWidth = (clip.durationMs / 30).toInt().dp
-
-                                Box(
+                            if (videoClips.isEmpty()) {
+                                Surface(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        importDialogInitialTab = 0
+                                        showImportDialog = true
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     modifier = Modifier
-                                        .width(clipWidth.coerceAtLeast(100.dp))
+                                        .width(300.dp)
                                         .fillMaxHeight()
-                                        .padding(horizontal = 2.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(clip.colorTag))
-                                        .border(
-                                            width = if (isSelected) 2.dp else 0.dp,
-                                            color = if (isSelected) Color.White else Color.Transparent,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            selectedClipId = clip.id
-                                            selectedClipMediaType = clip.mediaType
-                                            currentPlayheadMs = clip.startOffsetMs
-                                            onVideoUriChanged(clip.uriString)
-                                        }
-                                        .padding(8.dp)
+                                        .padding(vertical = 4.dp, horizontal = 2.dp)
                                 ) {
                                     Row(
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        horizontalArrangement = Arrangement.Center
                                     ) {
                                         Icon(
-                                            imageVector = if (clip.mediaType == ClipMediaType.PHOTO) Icons.Rounded.Image else Icons.Rounded.Videocam,
+                                            Icons.Rounded.AddCircleOutline,
                                             contentDescription = null,
-                                            tint = Color.White.copy(alpha = 0.85f),
-                                            modifier = Modifier.size(14.dp)
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = clip.name,
-                                            color = Color.White,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            text = "Ketuk untuk tambah video/foto",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
+                                }
+                            } else {
+                                videoClips.forEach { clip ->
+                                    val isSelected = clip.id == selectedClipId && selectedClipMediaType != ClipMediaType.AUDIO
+                                    val clipWidth = (clip.durationMs / 30).toInt().dp
 
-                                    Surface(
-                                        color = Color.Black.copy(alpha = 0.5f),
-                                        shape = RoundedCornerShape(4.dp),
-                                        modifier = Modifier.align(Alignment.BottomEnd)
+                                    Box(
+                                        modifier = Modifier
+                                            .width(clipWidth.coerceAtLeast(100.dp))
+                                            .fillMaxHeight()
+                                            .padding(horizontal = 2.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(clip.colorTag))
+                                            .border(
+                                                width = if (isSelected) 2.dp else 0.dp,
+                                                color = if (isSelected) Color.White else Color.Transparent,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                selectedClipId = clip.id
+                                                selectedClipMediaType = clip.mediaType
+                                                currentPlayheadMs = clip.startOffsetMs
+                                                onVideoUriChanged(clip.uriString)
+                                            }
+                                            .padding(8.dp)
                                     ) {
-                                        Text(
-                                            text = "${clip.durationMs / 1000.0}s",
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontSize = 9.sp,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (clip.mediaType == ClipMediaType.PHOTO) Icons.Rounded.Image else Icons.Rounded.Videocam,
+                                                contentDescription = null,
+                                                tint = Color.White.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = clip.name,
+                                                color = Color.White,
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+
+                                        Surface(
+                                            color = Color.Black.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(4.dp),
+                                            modifier = Modifier.align(Alignment.BottomEnd)
+                                        ) {
+                                            Text(
+                                                text = if (clip.speedMultiplier != 1.0f) "${clip.speedMultiplier}x • ${clip.durationMs / 1000.0}s" else "${clip.durationMs / 1000.0}s",
+                                                color = Color.White.copy(alpha = 0.9f),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontSize = 9.sp,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -648,7 +798,42 @@ fun CutScreen(
                         ) {
                             Spacer(modifier = Modifier.width(60.dp))
 
-                            audioClips.forEach { clip ->
+                            if (audioClips.isEmpty()) {
+                                Surface(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        importDialogInitialTab = 1
+                                        showImportDialog = true
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFF10B981).copy(alpha = 0.08f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.25f)),
+                                    modifier = Modifier
+                                        .width(260.dp)
+                                        .fillMaxHeight()
+                                        .padding(vertical = 4.dp, horizontal = 2.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.Audiotrack,
+                                            contentDescription = null,
+                                            tint = Color(0xFF10B981),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Ketuk untuk tambah musik/audio",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFF10B981)
+                                        )
+                                    }
+                                }
+                            } else {
+                                audioClips.forEach { clip ->
                                 val isSelected = clip.id == selectedClipId && selectedClipMediaType == ClipMediaType.AUDIO
                                 val clipWidth = (clip.durationMs / 30).toInt().dp
 
@@ -731,8 +916,9 @@ fun CutScreen(
                                     }
                                 }
                             }
+                        }
 
-                            Spacer(modifier = Modifier.width(60.dp))
+                        Spacer(modifier = Modifier.width(60.dp))
                         }
                     }
 
