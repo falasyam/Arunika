@@ -4,33 +4,29 @@
 
 ---
 
-## 🔴 KRITIS — Fungsionalitas Inti Rusak
+## 🔴 KRITIS — Fungsionalitas Inti Rusak (SEMUA SELESAI DIPERBAIKI ✅)
 
 ### 1. Color Grading Tidak Mempengaruhi Video Nyata
-**Lokasi:** `ColorGradingOverlay.kt`
-**Masalah:** Overlay color grading hanya menggambar layer Canvas semi-transparan **di atas** video. Warna video asli dari ExoPlayer tidak dimodifikasi sama sekali. Efek Lift/Gamma/Gain, LUT, CST — semua hanya tipuan visual `drawRect` / `drawCircle`, bukan frame-level processing.
-**Seharusnya:** Frame dari ExoPlayer perlu ditangkap via `SurfaceTexture → OpenGL ES` lalu diproses dengan shader GLSL sebelum ditampilkan.
+- **Status:** ✅ **SELESAI** (Commit `fec8a29`)
+- **Solusi yang Diterapkan:** Membuat `ArunikaColorEffect` mengimplementasikan `androidx.media3.effect.RgbMatrix` dengan pipeline matrix 4×4 kolom-mayor GPU (CST, Lift, Gamma, Gain, Temperature, Saturation, Contrast, LUT Preset). Diterapkan langsung ke ExoPlayer via `setVideoEffects()`.
 
 ---
 
-### 2. GPU Shader Engine (NDK / C++) Tidak Diimplementasikan
-**Lokasi:** `GlslShaderEngine.kt`, `app/src/main/cpp/`
-**Masalah:** `NativeGpuShaderEngine` memanggil fungsi-fungsi JNI (`nativeInit`, `nativeRender`, dll), tapi **file C++ NDK belum ada** atau tidak dikaitkan ke pipeline video. `System.loadLibrary("arunika_native_engine")` akan crash saat runtime jika native lib tidak ada.
-**Seharusnya:** Implementasi `CMakeLists.txt` + file `.cpp` yang terhubung ke MediaCodec/OpenGL ES 3.x dan ExoPlayer via `SurfaceTexture`.
+### 2. GPU Shader Engine (NDK / C++)
+- **Status:** ✅ **SELESAI & AMAN** (Commit `082cdc4`)
+- **Solusi yang Diterapkan:** Library C++ NDK (`arunika_native_engine.cpp`) aktif dan terkompilasi melalui CMake untuk arm64-v8a, armeabi-v7a, dan x86_64. Ditambahkan safeguard try-catch dan flag `isLibraryLoaded` pada `GlslShaderEngine.kt` agar tidak crash saat runtime jika dipanggil di luar konteks GL.
 
 ---
 
 ### 3. Export Video Hanya Simulasi (Fake Progress Bar)
-**Lokasi:** `DeliverScreen.kt` baris 230–295
-**Masalah:** Tombol "Export Master Video" hanya menjalankan `coroutine delay` bertahap untuk pura-pura ada progress. Tidak ada MediaCodec, MediaMuxer, atau penulisan file `.mp4` nyata ke storage.
-**Seharusnya:** Implementasi `MediaCodec` encoder + `MediaMuxer` yang membaca clip dari timeline, menerapkan color grade, lalu menghasilkan file `.mp4` / `.mov` di folder Downloads.
+- **Status:** ✅ **SELESAI** (Commit `feb39fd`)
+- **Solusi yang Diterapkan:** Mengimplementasikan hardware transcoding nyata menggunakan `androidx.media3.transformer.Transformer` & `MediaCodec` di `DeliverScreen.kt`. Efek color grading dibakar (*baked*) langsung ke video hasil render via `ArunikaColorEffect`, mendukung output H.264 & H.265 (HEVC), estimasi bitrate nyata, progress bar real-time dari `ProgressHolder`, penyimpanan otomatis ke direktori Movies, dan registrasi ke MediaStore.
 
 ---
 
 ### 4. AI Shot Matcher Tidak Terhubung ke UI
-**Lokasi:** `ShotMatcher.kt`, `ColorStudioScreen.kt`
-**Masalah:** `ShotMatcher.analyzeFrame()` dan `matchShots()` sudah diimplementasikan dengan logika statistik yang benar, tapi **tidak ada yang memanggilnya**. Tombol "Auto Match" di Color Studio tidak memanggil `ShotMatcher` sama sekali — hanya styling UI.
-**Seharusnya:** Tombol Auto-Match perlu mengekstrak frame thumbnail dari dua klip via `MediaMetadataRetriever`, menjalankan `analyzeFrame()`, lalu mengaplikasikan hasil `matchShots()` ke `ColorStudioState`.
+- **Status:** ✅ **SELESAI** (Commit `082cdc4`)
+- **Solusi yang Diterapkan:** Tombol AI Shot Matcher (`AutoFixHigh`) dihubungkan langsung ke analisis frame video nyata melalui `MediaMetadataRetriever`. Frame diekstrak dan di-downsample menjadi 120×90 piksel, dihitung statistik warna RGB + Luma oleh `ShotMatcher.analyzeFrame()`, lalu hasil penyeimbangan `matchShots()` langsung diterapkan ke node color grading aktif dengan notifikasi Toast.
 
 ---
 
