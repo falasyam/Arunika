@@ -80,11 +80,10 @@
 
 ### 10. Undo/Redo Stack Hanya Label, Tidak Ada State Rollback
 **Lokasi:** `ArunikaMainShell.kt`
-**Status:** 🔴 **BELUM SELESAI**
-- Snapshot untuk sebagian state Audio, Color, Titling, dan Keyframe serta restore dasar sudah ditambahkan.
-- ⚠️ Snapshot belum disimpan sebelum setiap perubahan editor, timeline belum termasuk snapshot, dan perubahan jumlah node Color tidak dipulihkan.
-- Karena itu tombol Undo/Redo belum dapat membatalkan/mengulangi seluruh aksi editor dengan benar.
-**Sisa:** Catat snapshot sebelum mutasi state, cakup timeline dan semua state editor, lalu uji urutan undo/redo.
+**Status:** ✅ **SELESAI**
+- Riwayat mencatat otomatis perubahan state editor yang diamati Compose; perpindahan tab tidak lagi membuat entri Undo palsu.
+- Snapshot mencakup state Audio, Color beserta jumlah/tipe node dan LUT kustom, Titling, Keyframe, serta klip video dan audio pada timeline.
+- Undo/Redo memulihkan snapshot penuh; riwayat dibatasi hingga 100 langkah.
 
 ---
 

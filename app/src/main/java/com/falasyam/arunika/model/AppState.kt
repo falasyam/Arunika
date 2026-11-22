@@ -181,16 +181,38 @@ object ProjectPresets {
 /**
  * Model data kontrol audio klip & master
  */
-data class AudioStudioState(
-    var masterVolume: Float = 1.0f,
-    var voiceIsolation: Float = 0.0f, // 0 - 100%
-    var deReverb: Float = 0.0f,       // 0 - 100%
-    var autoDucking: Boolean = false,
-    var duckingThresholdDb: Float = -24f,
-    var bassGainDb: Float = 0f,
-    var midGainDb: Float = 0f,
-    var trebleGainDb: Float = 0f
+data class AudioStudioSnapshot(
+    val masterVolume: Float,
+    val voiceIsolation: Float,
+    val deReverb: Float,
+    val autoDucking: Boolean,
+    val duckingThresholdDb: Float,
+    val bassGainDb: Float,
+    val midGainDb: Float,
+    val trebleGainDb: Float
 )
+
+class AudioStudioState {
+    var masterVolume by mutableFloatStateOf(1.0f)
+    var voiceIsolation by mutableFloatStateOf(0.0f)
+    var deReverb by mutableFloatStateOf(0.0f)
+    var autoDucking by mutableStateOf(false)
+    var duckingThresholdDb by mutableFloatStateOf(-24f)
+    var bassGainDb by mutableFloatStateOf(0f)
+    var midGainDb by mutableFloatStateOf(0f)
+    var trebleGainDb by mutableFloatStateOf(0f)
+
+    fun snapshot() = AudioStudioSnapshot(
+        masterVolume = masterVolume,
+        voiceIsolation = voiceIsolation,
+        deReverb = deReverb,
+        autoDucking = autoDucking,
+        duckingThresholdDb = duckingThresholdDb,
+        bassGainDb = bassGainDb,
+        midGainDb = midGainDb,
+        trebleGainDb = trebleGainDb
+    )
+}
 
 /**
  * Model konfigurasi export & render

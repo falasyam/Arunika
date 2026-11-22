@@ -6,6 +6,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +34,7 @@ private data class GradeNodeSnapshot(
     val id: Int,
     val name: String,
     val enabled: Boolean,
+    val type: NodeType,
     val liftX: Float,
     val liftY: Float,
     val liftLum: Float,
@@ -54,9 +57,12 @@ private data class GradeNodeSnapshot(
 )
 
 private data class EditorSnapshot(
-    val audio: AudioStudioState,
+    val audio: AudioStudioSnapshot,
     val titling: List<TitleElement>,
     val keyframes: List<Keyframe>,
+    val videoClips: List<TimelineClip>,
+    val audioClips: List<TimelineClip>,
+    val customLuts: List<LutPreset>,
     val activeNodeIndex: Int,
     val activeTarget: WheelTarget,
     val inputLogProfile: CameraLogProfile,
@@ -185,6 +191,7 @@ fun ArunikaEditorShell(
                 id = node.id,
                 name = node.name,
                 enabled = node.isEnabled,
+                type = node.type,
                 liftX = node.lift.x,
                 liftY = node.lift.y,
                 liftLum = node.lift.luminance,
@@ -207,9 +214,12 @@ fun ArunikaEditorShell(
             )
         }
         return EditorSnapshot(
-            audio = audioState.copy(),
+            audio = audioState.snapshot(),
             titling = titlingState.elements.toList(),
             keyframes = keyframeState.keyframes.toList(),
+            videoClips = editorVideoClips.toList(),
+            audioClips = editorAudioClips.toList(),
+            customLuts = colorStudioState.customLuts.toList(),
             activeNodeIndex = colorStudioState.activeNodeIndex,
             activeTarget = colorStudioState.activeTarget,
             inputLogProfile = colorStudioState.inputLogProfile,
@@ -234,7 +244,22 @@ fun ArunikaEditorShell(
         titlingState.elements.addAll(snapshot.titling)
         keyframeState.keyframes.clear()
         keyframeState.keyframes.addAll(snapshot.keyframes)
+        editorVideoClips = snapshot.videoClips
+        editorAudioClips = snapshot.audioClips
+        colorStudioState.customLuts.clear()
+        colorStudioState.customLuts.addAll(snapshot.customLuts)
 
+        colorStudioState.nodes.clear()
+        snapshot.nodes.forEach { snap ->
+            colorStudioState.nodes.add(
+                GradeNode(
+                    id = snap.id,
+                    initialName = snap.name,
+                    initialEnabled = snap.enabled,
+                    type = snap.type
+                )
+            )
+        }
         colorStudioState.activeNodeIndex = snapshot.activeNodeIndex
         colorStudioState.activeTarget = snapshot.activeTarget
         colorStudioState.inputLogProfile = snapshot.inputLogProfile
@@ -243,38 +268,50 @@ fun ArunikaEditorShell(
         colorStudioState.splitPosition = snapshot.splitPosition
 
         snapshot.nodes.forEachIndexed { index, snap ->
-            if (index in colorStudioState.nodes.indices) {
-                val node = colorStudioState.nodes[index]
-                node.name = snap.name
-                node.isEnabled = snap.enabled
-                node.lift.x = snap.liftX
-                node.lift.y = snap.liftY
-                node.lift.luminance = snap.liftLum
-                node.gamma.x = snap.gammaX
-                node.gamma.y = snap.gammaY
-                node.gamma.luminance = snap.gammaLum
-                node.gain.x = snap.gainX
-                node.gain.y = snap.gainY
-                node.gain.luminance = snap.gainLum
-                node.offset.x = snap.offsetX
-                node.offset.y = snap.offsetY
-                node.offset.luminance = snap.offsetLum
-                node.temperature = snap.temperature
-                node.tint = snap.tint
-                node.contrast = snap.contrast
-                node.saturation = snap.saturation
-                node.selectedLut = snap.lut
-                node.lutIntensity = snap.lutIntensity
-                node.vignette = snap.vignette
-            }
+            val node = colorStudioState.nodes[index]
+            node.lift.x = snap.liftX
+            node.lift.y = snap.liftY
+            node.lift.luminance = snap.liftLum
+            node.gamma.x = snap.gammaX
+            node.gamma.y = snap.gammaY
+            node.gamma.luminance = snap.gammaLum
+            node.gain.x = snap.gainX
+            node.gain.y = snap.gainY
+            node.gain.luminance = snap.gainLum
+            node.offset.x = snap.offsetX
+            node.offset.y = snap.offsetY
+            node.offset.luminance = snap.offsetLum
+            node.temperature = snap.temperature
+            node.tint = snap.tint
+            node.contrast = snap.contrast
+            node.saturation = snap.saturation
+            node.selectedLut = snap.lut
+            node.lutIntensity = snap.lutIntensity
+            node.vignette = snap.vignette
         }
     }
 
-    // Undo/Redo History menyimpan snapshot nyata state editor.
-    val undoStack = remember { ArrayDeque<EditorSnapshot>() }
-    val redoStack = remember { ArrayDeque<EditorSnapshot>() }
+    val undoStack = remember { mutableStateListOf<EditorSnapshot>() }
+    val redoStack = remember { mutableStateListOf<EditorSnapshot>() }
+    var pendingRestoreSnapshot by remember { mutableStateOf<EditorSnapshot?>(null) }
     var lastActionLabel by remember { mutableStateOf<String?>(null) }
     var showUndoToast by remember { mutableStateOf(false) }
+
+    LaunchedEffect(colorStudioState, audioState, titlingState, keyframeState, project.id) {
+        var observedSnapshot = captureSnapshot()
+        snapshotFlow { captureSnapshot() }
+            .collect { currentSnapshot ->
+                if (currentSnapshot == pendingRestoreSnapshot) {
+                    observedSnapshot = currentSnapshot
+                    pendingRestoreSnapshot = null
+                } else if (currentSnapshot != observedSnapshot) {
+                    undoStack.add(observedSnapshot)
+                    if (undoStack.size > 100) undoStack.removeAt(0)
+                    redoStack.clear()
+                    observedSnapshot = currentSnapshot
+                }
+            }
+    }
 
     LaunchedEffect(showUndoToast) {
         if (showUndoToast) {
@@ -337,8 +374,9 @@ fun ArunikaEditorShell(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 if (undoStack.isNotEmpty()) {
-                                    val snapshot = undoStack.removeLast()
-                                    redoStack.addLast(captureSnapshot())
+                                    val snapshot = undoStack.removeAt(undoStack.lastIndex)
+                                    redoStack.add(captureSnapshot())
+                                    pendingRestoreSnapshot = snapshot
                                     restoreSnapshot(snapshot)
                                     lastActionLabel = "Undo: state editor"
                                     showUndoToast = true
@@ -352,8 +390,9 @@ fun ArunikaEditorShell(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 if (redoStack.isNotEmpty()) {
-                                    val snapshot = redoStack.removeLast()
-                                    undoStack.addLast(captureSnapshot())
+                                    val snapshot = redoStack.removeAt(redoStack.lastIndex)
+                                    undoStack.add(captureSnapshot())
+                                    pendingRestoreSnapshot = snapshot
                                     restoreSnapshot(snapshot)
                                     lastActionLabel = "Redo: state editor"
                                     showUndoToast = true
@@ -398,8 +437,6 @@ fun ArunikaEditorShell(
                                 onClick = {
                                     if (activeTab != tab) {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        undoStack.addLast(captureSnapshot())
-                                        redoStack.clear()
                                         activeTab = tab
                                     }
                                 },
@@ -439,8 +476,6 @@ fun ArunikaEditorShell(
                                 onClick = {
                                     if (activeTab != tab) {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        undoStack.addLast(captureSnapshot())
-                                        redoStack.clear()
                                         activeTab = tab
                                     }
                                 },

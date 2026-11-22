@@ -38,13 +38,13 @@ fun AudioScreen(
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    var voiceIso by remember { mutableStateOf(state.voiceIsolation) }
-    var deReverb by remember { mutableStateOf(state.deReverb) }
-    var autoDuck by remember { mutableStateOf(state.autoDucking) }
-    var masterVol by remember { mutableStateOf(state.masterVolume) }
-    var bassGain by remember { mutableStateOf(state.bassGainDb) }
-    var midGain by remember { mutableStateOf(state.midGainDb) }
-    var trebleGain by remember { mutableStateOf(state.trebleGainDb) }
+    var voiceIso by state::voiceIsolation
+    var deReverb by state::deReverb
+    var autoDuck by state::autoDucking
+    var masterVol by state::masterVolume
+    var bassGain by state::bassGainDb
+    var midGain by state::midGainDb
+    var trebleGain by state::trebleGainDb
 
     // Real VU Meter State
     var leftMeterLevel by remember { mutableFloatStateOf(0.0f) }
@@ -294,7 +294,6 @@ fun AudioScreen(
                     value = voiceIso,
                     onValueChange = {
                         voiceIso = it
-                        state.voiceIsolation = it
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -310,7 +309,6 @@ fun AudioScreen(
                     value = deReverb,
                     onValueChange = {
                         deReverb = it
-                        state.deReverb = it
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -339,7 +337,6 @@ fun AudioScreen(
                         onCheckedChange = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             autoDuck = it
-                            state.autoDucking = it
                         }
                     )
                 }
@@ -369,7 +366,7 @@ fun AudioScreen(
                         Text("BASS (100Hz)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                         Slider(
                             value = bassGain,
-                            onValueChange = { bassGain = it; state.bassGainDb = it },
+                            onValueChange = { bassGain = it },
                             valueRange = -12f..12f,
                             steps = 24
                         )
@@ -381,7 +378,7 @@ fun AudioScreen(
                         Text("VOCAL (1.2kHz)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                         Slider(
                             value = midGain,
-                            onValueChange = { midGain = it; state.midGainDb = it },
+                            onValueChange = { midGain = it },
                             valueRange = -12f..12f,
                             steps = 24
                         )
@@ -393,7 +390,7 @@ fun AudioScreen(
                         Text("AIR (8kHz)", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                         Slider(
                             value = trebleGain,
-                            onValueChange = { trebleGain = it; state.trebleGainDb = it },
+                            onValueChange = { trebleGain = it },
                             valueRange = -12f..12f,
                             steps = 24
                         )
@@ -418,7 +415,6 @@ fun AudioScreen(
                     value = masterVol,
                     onValueChange = {
                         masterVol = it
-                        state.masterVolume = it
                     },
                     valueRange = 0f..2f,
                     modifier = Modifier.fillMaxWidth()
