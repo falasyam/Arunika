@@ -40,12 +40,29 @@ import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.*
 import androidx.media3.transformer.Composition as MediaComposition
+import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.OverlaySettings
+import androidx.media3.effect.TextOverlay
+import androidx.media3.common.util.Size
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.BackgroundColorSpan
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
+import android.text.style.TypefaceSpan
+import android.graphics.Typeface
+import com.google.common.collect.ImmutableList
 import com.falasyam.arunika.model.ColorStudioState
 import com.falasyam.arunika.model.ClipMediaType
 import com.falasyam.arunika.model.DeliverExportState
 import com.falasyam.arunika.model.ExportCodec
 import com.falasyam.arunika.model.ExportResolution
+import com.falasyam.arunika.model.Keyframe
+import com.falasyam.arunika.model.TitleAnimation
+import com.falasyam.arunika.model.TitleElement
+import com.falasyam.arunika.model.TitleFont
 import com.falasyam.arunika.model.TimelineClip
+import com.falasyam.arunika.model.interpolateKeyframes
 import com.falasyam.arunika.ui.components.ArunikaColorEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -123,7 +140,9 @@ fun DeliverScreen(
     videoClips: List<TimelineClip> = emptyList(),
     audioClips: List<TimelineClip> = emptyList(),
     masterVolume: Float = 1f,
-    colorStudioState: ColorStudioState? = null
+    colorStudioState: ColorStudioState? = null,
+    titleElements: List<TitleElement> = emptyList(),
+    keyframes: List<Keyframe> = emptyList()
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -431,12 +450,28 @@ fun DeliverScreen(
                             require(gapMs >= 0) { "Video clips overlap; adjust the timeline before exporting." }
                             if (gapMs > 0) {
                                 videoSequenceItems.add(
-                                    buildBlackFrameItem(assetsDirectory, gapMs)
+                                    buildBlackFrameItem(
+                                        assetsDirectory,
+                                        gapMs,
+                                        titleElements,
+                                        keyframes,
+                                        fps,
+                                        timelineCursorMs
+                                    )
                                 )
                             }
                             val uri = clip.uriString
                             if (uri == null) {
-                                videoSequenceItems.add(buildBlackFrameItem(assetsDirectory, clip.durationMs))
+                                videoSequenceItems.add(
+                                    buildBlackFrameItem(
+                                        assetsDirectory,
+                                        clip.durationMs,
+                                        titleElements,
+                                        keyframes,
+                                        fps,
+                                        clip.startOffsetMs
+                                    )
+                                )
                             } else {
                                 videoSequenceItems.add(
                                     buildEditedClip(
@@ -444,7 +479,10 @@ fun DeliverScreen(
                                         includeVideo = true,
                                         includeAudio = clip.mediaType == ClipMediaType.VIDEO,
                                         masterVolume = masterVolume,
-                                        colorStudioState = colorStudioState
+                                        colorStudioState = colorStudioState,
+                                        titleElements = titleElements,
+                                        keyframes = keyframes,
+                                        frameRate = fps
                                     )
                                 )
                             }
@@ -473,7 +511,10 @@ fun DeliverScreen(
                                         includeVideo = false,
                                         includeAudio = true,
                                         masterVolume = masterVolume,
-                                        colorStudioState = null
+                                        colorStudioState = null,
+                                        titleElements = emptyList(),
+                                        keyframes = emptyList(),
+                                        frameRate = fps
                                     )
                                 )
                                 compositionSequences.add(EditedMediaItemSequence(audioSequenceItems))
@@ -594,7 +635,10 @@ private fun buildEditedClip(
     includeVideo: Boolean,
     includeAudio: Boolean,
     masterVolume: Float,
-    colorStudioState: ColorStudioState?
+    colorStudioState: ColorStudioState?,
+    titleElements: List<TitleElement>,
+    keyframes: List<Keyframe>,
+    frameRate: Int
 ): EditedMediaItem {
             val uri = Uri.parse(requireNotNull(clip.uriString))
             val mediaItemBuilder = MediaItem.Builder().setUri(uri)
@@ -628,6 +672,16 @@ private fun buildEditedClip(
             if (includeVideo && colorStudioState != null) {
                 val colorEffect = ArunikaColorEffect(colorStudioState)
                 if (!colorEffect.isNoOp()) videoEffects.add(colorEffect)
+            }
+            if (includeVideo && titleElements.isNotEmpty()) {
+                videoEffects.add(
+                    createTitleOverlayEffect(
+                        titleElements,
+                        keyframes,
+                        frameRate,
+                        clip.startOffsetMs
+                    )
+                )
             }
 
             return EditedMediaItem.Builder(mediaItemBuilder.build())
@@ -668,7 +722,14 @@ private class ClipGainAudioProcessor(private val gain: Float) : BaseAudioProcess
             }
 }
 
-private fun buildBlackFrameItem(assetsDirectory: File, durationMs: Long): EditedMediaItem {
+private fun buildBlackFrameItem(
+    assetsDirectory: File,
+    durationMs: Long,
+    titleElements: List<TitleElement>,
+    keyframes: List<Keyframe>,
+    frameRate: Int,
+    timelineStartMs: Long
+): EditedMediaItem {
     val frameFile = File(assetsDirectory, "black-frame.png")
     if (!frameFile.exists()) {
         val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
@@ -684,9 +745,188 @@ private fun buildBlackFrameItem(assetsDirectory: File, durationMs: Long): Edited
         .setUri(Uri.fromFile(frameFile))
         .setImageDurationMs(durationMs.coerceAtLeast(1L))
         .build()
-    return EditedMediaItem.Builder(mediaItem)
+    val builder = EditedMediaItem.Builder(mediaItem)
         .setRemoveAudio(true)
-        .build()
+    if (titleElements.isNotEmpty()) {
+        builder.setEffects(
+            Effects(
+                emptyList(),
+                listOf(
+                    createTitleOverlayEffect(
+                        titleElements,
+                        keyframes,
+                        frameRate,
+                        timelineStartMs
+                    )
+                )
+            )
+        )
+    }
+    return builder.build()
+}
+
+private fun createTitleOverlayEffect(
+    titleElements: List<TitleElement>,
+    keyframes: List<Keyframe>,
+    frameRate: Int,
+    timelineStartMs: Long
+): OverlayEffect {
+    val overlays = titleElements.map { element ->
+        TimelineTextOverlay(
+            element = element,
+            keyframes = keyframes,
+            frameRate = frameRate,
+            timelineStartMs = timelineStartMs
+        )
+    }
+    return OverlayEffect(ImmutableList.copyOf(overlays))
+}
+
+private class TimelineTextOverlay(
+    private val element: TitleElement,
+    private val keyframes: List<Keyframe>,
+    private val frameRate: Int,
+    private val timelineStartMs: Long
+) : TextOverlay() {
+    private var videoSize: Size? = null
+    private var cachedTextKey: Pair<String, Int>? = null
+    private var cachedText = SpannableString(" ")
+
+    override fun configure(videoSize: Size) {
+        super.configure(videoSize)
+        this.videoSize = videoSize
+    }
+
+    override fun getText(presentationTimeUs: Long): SpannableString {
+        val frame = timelineFrame(presentationTimeUs)
+        val elapsedFrames = frame - element.startFrame
+        val active = elapsedFrames >= 0 && elapsedFrames < element.durationFrames.coerceAtLeast(1)
+        val introFrames = (frameRate * 0.4f).roundToInt().coerceAtLeast(1)
+        val introProgress = if (active) {
+            (elapsedFrames.toFloat() / introFrames).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        val renderedText = when {
+            !active -> " "
+            element.animationType == TitleAnimation.TYPEWRITER ->
+                element.text.take((element.text.length * introProgress).roundToInt())
+            element.animationType == TitleAnimation.WORD_BY_WORD -> {
+                val words = element.text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+                val count = (words.size * introProgress).roundToInt().coerceIn(0, words.size)
+                words.take(count).joinToString(" ")
+            }
+            else -> element.text
+        }.ifEmpty { " " }
+        val highlightedWordIndex = if (
+            active && element.wordHighlight && element.animationType == TitleAnimation.WORD_BY_WORD
+        ) {
+            val wordCount = element.text.split(Regex("\\s+")).count { it.isNotEmpty() }
+            (introProgress * wordCount).toInt().coerceIn(0, (wordCount - 1).coerceAtLeast(0))
+        } else {
+            -1
+        }
+        val textKey = renderedText to highlightedWordIndex
+        if (cachedTextKey != textKey) {
+            cachedTextKey = textKey
+            cachedText = createStyledText(renderedText, highlightedWordIndex)
+        }
+        return cachedText
+    }
+
+    override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+        val frame = timelineFrame(presentationTimeUs)
+        val elapsedFrames = frame - element.startFrame
+        val active = elapsedFrames >= 0 && elapsedFrames < element.durationFrames.coerceAtLeast(1)
+        val introFrames = (frameRate * 0.4f).roundToInt().coerceAtLeast(1)
+        val introProgress = if (active) {
+            (elapsedFrames.toFloat() / introFrames).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        val transform = interpolateKeyframes(keyframes, frameToMs(frame))
+        val animationAlpha = if (element.animationType == TitleAnimation.FADE_IN) introProgress else 1f
+        val videoHeight = videoSize?.height ?: 1080
+        val textScale = element.fontSize * videoHeight / 30_000f
+        val slideOffset = if (element.animationType == TitleAnimation.SLIDE_UP) {
+            (1f - introProgress) * 0.06f
+        } else {
+            0f
+        }
+        val x = (element.x + transform.posX / 100f).coerceIn(0f, 1f)
+        val y = (element.y + transform.posY / 100f + slideOffset).coerceIn(0f, 1f)
+        return OverlaySettings.Builder()
+            .setBackgroundFrameAnchor(2f * x - 1f, 1f - 2f * y)
+            .setScale(textScale * transform.scale, textScale * transform.scale)
+            .setRotationDegrees(transform.rotation)
+            .setAlphaScale(
+                if (active) {
+                    (element.opacity * transform.opacity * animationAlpha).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+            )
+            .build()
+    }
+
+    private fun timelineFrame(presentationTimeUs: Long): Int {
+        val elapsedMs = presentationTimeUs / 1000L
+        val timelineMs = timelineStartMs + elapsedMs
+        return (timelineMs.coerceAtLeast(0L) * frameRate / 1000L).toInt()
+    }
+
+    private fun frameToMs(frame: Int): Long =
+        frame * 1000L / frameRate.coerceAtLeast(1)
+
+    private fun createStyledText(text: String, highlightedWordIndex: Int): SpannableString {
+        val spannable = SpannableString(text)
+        val end = text.length
+        spannable.setSpan(
+            ForegroundColorSpan(element.textColor.toInt()),
+            0,
+            end,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        spannable.setSpan(
+            TypefaceSpan(
+                when (element.font) {
+                    TitleFont.SANS -> "sans-serif"
+                    TitleFont.SERIF, TitleFont.CINEMATIC -> "serif"
+                    TitleFont.MONO -> "monospace"
+                    TitleFont.HANDWRITTEN -> "cursive"
+                }
+            ),
+            0,
+            end,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        spannable.setSpan(
+            StyleSpan(Typeface.BOLD),
+            0,
+            end,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        if (element.bgColor ushr 24 != 0L) {
+            spannable.setSpan(
+                BackgroundColorSpan(element.bgColor.toInt()),
+                0,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        if (highlightedWordIndex >= 0) {
+            val words = Regex("\\S+").findAll(text).toList()
+            words.getOrNull(highlightedWordIndex)?.let { word ->
+                spannable.setSpan(
+                    ForegroundColorSpan(element.highlightColor.toInt()),
+                    word.range.first,
+                    word.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
+        return spannable
+    }
 }
 
 private fun buildSilentAudioItem(assetsDirectory: File, durationMs: Long): EditedMediaItem {

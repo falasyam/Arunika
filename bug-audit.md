@@ -48,7 +48,9 @@
 **Status:** 🟡 **PARSIAL**
 - ✅ Marker `◆` ditampilkan pada klip timeline dan tombol keyframe dapat menambah keyframe scale di playhead.
 - ✅ Hasil interpolasi diterapkan pada transform overlay title di preview Cut saat posisi playhead berubah.
-- ⚠️ Keyframe belum diterapkan ke hasil export; kontrol untuk semua properti dan editing keyframe di timeline juga belum lengkap.
+- ✅ Hasil interpolasi keyframe untuk posisi, skala, rotasi, dan opasitas dibakar ke overlay title saat export klip video/foto dan jeda timeline.
+- ✅ Title, pemunculan berdasarkan frame/durasi, font, warna, serta animasi masuk diterapkan pada hasil export.
+- ⚠️ Kontrol untuk semua properti serta editing keyframe langsung di timeline masih belum lengkap.
 
 ---
 

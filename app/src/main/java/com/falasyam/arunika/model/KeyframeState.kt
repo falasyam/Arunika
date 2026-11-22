@@ -82,52 +82,7 @@ class KeyframeState {
      * Hitung nilai transform terinterpolasi pada timeMs tertentu
      */
     fun interpolateTransform(timeMs: Long): TransformValues {
-        val posX = interpolateProperty(timeMs, AnimProperty.POSITION_X)
-        val posY = interpolateProperty(timeMs, AnimProperty.POSITION_Y)
-        val scale = interpolateProperty(timeMs, AnimProperty.SCALE)
-        val rotation = interpolateProperty(timeMs, AnimProperty.ROTATION)
-        val opacity = interpolateProperty(timeMs, AnimProperty.OPACITY)
-
-        return TransformValues(
-            posX = posX,
-            posY = posY,
-            scale = scale,
-            rotation = rotation,
-            opacity = opacity
-        )
-    }
-
-    private fun interpolateProperty(timeMs: Long, property: AnimProperty): Float {
-        val propKfs = keyframes.filter { it.property == property }.sortedBy { it.timeMs }
-        if (propKfs.isEmpty()) return property.defaultValue
-        if (timeMs <= propKfs.first().timeMs) return propKfs.first().value
-        if (timeMs >= propKfs.last().timeMs) return propKfs.last().value
-
-        // Cari dua keyframe yang mengapit timeMs
-        var prev = propKfs.first()
-        var next = propKfs.last()
-        for (i in 0 until propKfs.size - 1) {
-            if (timeMs >= propKfs[i].timeMs && timeMs <= propKfs[i + 1].timeMs) {
-                prev = propKfs[i]
-                next = propKfs[i + 1]
-                break
-            }
-        }
-
-        val duration = (next.timeMs - prev.timeMs).toFloat()
-        if (duration <= 0) return prev.value
-
-        var t = (timeMs - prev.timeMs) / duration
-
-        // Easing calculations
-        t = when (prev.easing) {
-            EasingType.LINEAR -> t
-            EasingType.EASE_IN_OUT -> (0.5f * (1f - cos(t * PI.toFloat())))
-            EasingType.EASE_IN -> t * t
-            EasingType.EASE_OUT -> sin(t * (PI.toFloat() / 2f))
-        }
-
-        return prev.value + (next.value - prev.value) * t
+        return interpolateKeyframes(keyframes, timeMs)
     }
 
     // ========================================================
@@ -146,4 +101,40 @@ class KeyframeState {
         addOrUpdateKeyframe(0, AnimProperty.SCALE, 1.15f)
         addOrUpdateKeyframe(durationMs, AnimProperty.SCALE, 1.15f)
     }
+}
+
+fun interpolateKeyframes(keyframes: List<Keyframe>, timeMs: Long): TransformValues {
+    fun interpolateProperty(property: AnimProperty): Float {
+        val propertyKeyframes = keyframes
+            .asSequence()
+            .filter { it.property == property }
+            .sortedBy { it.timeMs }
+            .toList()
+        if (propertyKeyframes.isEmpty()) return property.defaultValue
+        if (timeMs <= propertyKeyframes.first().timeMs) return propertyKeyframes.first().value
+        if (timeMs >= propertyKeyframes.last().timeMs) return propertyKeyframes.last().value
+
+        val nextIndex = propertyKeyframes.indexOfFirst { it.timeMs >= timeMs }
+        val previous = propertyKeyframes[nextIndex - 1]
+        val next = propertyKeyframes[nextIndex]
+        val duration = (next.timeMs - previous.timeMs).toFloat()
+        if (duration <= 0f) return previous.value
+
+        var progress = (timeMs - previous.timeMs) / duration
+        progress = when (previous.easing) {
+            EasingType.LINEAR -> progress
+            EasingType.EASE_IN_OUT -> 0.5f * (1f - cos(progress * PI.toFloat()))
+            EasingType.EASE_IN -> progress * progress
+            EasingType.EASE_OUT -> sin(progress * (PI.toFloat() / 2f))
+        }
+        return previous.value + (next.value - previous.value) * progress
+    }
+
+    return TransformValues(
+        posX = interpolateProperty(AnimProperty.POSITION_X),
+        posY = interpolateProperty(AnimProperty.POSITION_Y),
+        scale = interpolateProperty(AnimProperty.SCALE),
+        rotation = interpolateProperty(AnimProperty.ROTATION),
+        opacity = interpolateProperty(AnimProperty.OPACITY)
+    )
 }

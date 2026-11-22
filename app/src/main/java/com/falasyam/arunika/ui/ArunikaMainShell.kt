@@ -549,7 +549,9 @@ fun ArunikaEditorShell(
                                 videoClips = editorVideoClips,
                                 audioClips = editorAudioClips,
                                 masterVolume = audioState.masterVolume,
-                                colorStudioState = colorStudioState
+                                colorStudioState = colorStudioState,
+                                titleElements = titlingState.elements.toList(),
+                                keyframes = keyframeState.keyframes.toList()
                             )
                         }
                     }
