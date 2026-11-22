@@ -3,6 +3,8 @@ package com.falasyam.arunika.ui.screens
 import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -31,18 +33,30 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.C
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.BaseAudioProcessor
+import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.*
+import androidx.media3.transformer.Composition as MediaComposition
 import com.falasyam.arunika.model.ColorStudioState
+import com.falasyam.arunika.model.ClipMediaType
 import com.falasyam.arunika.model.DeliverExportState
 import com.falasyam.arunika.model.ExportCodec
 import com.falasyam.arunika.model.ExportResolution
+import com.falasyam.arunika.model.TimelineClip
 import com.falasyam.arunika.ui.components.ArunikaColorEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.io.File
+import kotlin.math.roundToInt
+import androidx.media3.effect.SpeedChangeEffect
 
 private suspend fun publishExportToMovies(context: android.content.Context, renderedFile: File, fileName: String): String =
     withContext(Dispatchers.IO) {
@@ -102,11 +116,13 @@ private suspend fun publishExportToMovies(context: android.content.Context, rend
  * - Format H.264 (AVC) dan H.265 (HEVC 10-bit)
  * - Real-time progress monitoring & saving directly to device storage
  */
-@OptIn(UnstableApi::class)
+@UnstableApi
 @Composable
 fun DeliverScreen(
     state: DeliverExportState = remember { DeliverExportState() },
-    videoUri: String? = null,
+    videoClips: List<TimelineClip> = emptyList(),
+    audioClips: List<TimelineClip> = emptyList(),
+    masterVolume: Float = 1f,
     colorStudioState: ColorStudioState? = null
 ) {
     val context = LocalContext.current
@@ -128,6 +144,7 @@ fun DeliverScreen(
 
     var activeTransformer by remember { mutableStateOf<Transformer?>(null) }
     var activeOutputFile by remember { mutableStateOf<File?>(null) }
+    var activeExportAssetsDirectory by remember { mutableStateOf<File?>(null) }
     var lastExportedPath by remember { mutableStateOf<String?>(null) }
 
     // Estimasi ukuran file (durasi 19 detik)
@@ -376,7 +393,7 @@ fun DeliverScreen(
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (videoUri == null) {
+                    if (videoClips.none { it.uriString != null && it.mediaType != ClipMediaType.AUDIO }) {
                         Toast.makeText(context, "Pilih klip video di tab Cut terlebih dahulu untuk diekspor!", Toast.LENGTH_LONG).show()
                         return@Button
                     }
@@ -392,25 +409,77 @@ fun DeliverScreen(
                         val outputFileName = "Arunika_Master_${System.currentTimeMillis()}.mp4"
                         val outputFile = File(context.cacheDir, outputFileName)
                         activeOutputFile = outputFile
+                        val assetsDirectory = File(
+                            context.cacheDir,
+                            "arunika-export-assets-${System.currentTimeMillis()}"
+                        )
+                        check(assetsDirectory.mkdirs()) { "Could not create temporary export assets." }
+                        activeExportAssetsDirectory = assetsDirectory
 
                         isExporting = true
                         progress = 0.01f
                         state.isExporting = true
                         state.exportProgress = 0.01f
 
-                        val mediaItem = MediaItem.fromUri(Uri.parse(videoUri))
-                        val effectsList = mutableListOf<androidx.media3.common.Effect>()
-
-                        // Terapkan color grading effect jika ada
-                        if (colorStudioState != null) {
-                            val colorEffect = ArunikaColorEffect(colorStudioState)
-                            if (!colorEffect.isNoOp()) {
-                                effectsList.add(colorEffect)
+                        val videoSequenceItems = mutableListOf<EditedMediaItem>()
+                        var timelineCursorMs = 0L
+                        val renderableVideoClips = videoClips
+                            .filter { it.mediaType != ClipMediaType.AUDIO }
+                            .sortedBy { it.startOffsetMs }
+                        renderableVideoClips.forEach { clip ->
+                            val gapMs = clip.startOffsetMs - timelineCursorMs
+                            require(gapMs >= 0) { "Video clips overlap; adjust the timeline before exporting." }
+                            if (gapMs > 0) {
+                                videoSequenceItems.add(
+                                    buildBlackFrameItem(assetsDirectory, gapMs)
+                                )
                             }
+                            val uri = clip.uriString
+                            if (uri == null) {
+                                videoSequenceItems.add(buildBlackFrameItem(assetsDirectory, clip.durationMs))
+                            } else {
+                                videoSequenceItems.add(
+                                    buildEditedClip(
+                                        clip = clip,
+                                        includeVideo = true,
+                                        includeAudio = clip.mediaType == ClipMediaType.VIDEO,
+                                        masterVolume = masterVolume,
+                                        colorStudioState = colorStudioState
+                                    )
+                                )
+                            }
+                            timelineCursorMs = maxOf(
+                                timelineCursorMs,
+                                clip.startOffsetMs + clip.durationMs
+                            )
                         }
 
-                        val editedMediaItem = EditedMediaItem.Builder(mediaItem)
-                            .setEffects(Effects(emptyList(), effectsList))
+                        val compositionSequences = mutableListOf(
+                            EditedMediaItemSequence(videoSequenceItems)
+                        )
+                        audioClips
+                            .filter { it.uriString != null && it.mediaType == ClipMediaType.AUDIO }
+                            .sortedBy { it.startOffsetMs }
+                            .forEach { clip ->
+                                val audioSequenceItems = mutableListOf<EditedMediaItem>()
+                                if (clip.startOffsetMs > 0) {
+                                    audioSequenceItems.add(
+                                        buildSilentAudioItem(assetsDirectory, clip.startOffsetMs)
+                                    )
+                                }
+                                audioSequenceItems.add(
+                                    buildEditedClip(
+                                        clip = clip,
+                                        includeVideo = false,
+                                        includeAudio = true,
+                                        masterVolume = masterVolume,
+                                        colorStudioState = null
+                                    )
+                                )
+                                compositionSequences.add(EditedMediaItemSequence(audioSequenceItems))
+                            }
+                        val composition = MediaComposition.Builder(compositionSequences)
+                            .experimentalSetForceAudioTrack(true)
                             .build()
 
                         val selectedVideoMime = if (codec == ExportCodec.H265_10BIT) {
@@ -450,6 +519,8 @@ fun DeliverScreen(
                                         } finally {
                                             outputFile.delete()
                                             activeOutputFile = null
+                                            activeExportAssetsDirectory?.deleteRecursively()
+                                            activeExportAssetsDirectory = null
                                             isExporting = false
                                             state.isExporting = false
                                         }
@@ -468,13 +539,15 @@ fun DeliverScreen(
                                     activeTransformer = null
                                     outputFile.delete()
                                     activeOutputFile = null
+                                    activeExportAssetsDirectory?.deleteRecursively()
+                                    activeExportAssetsDirectory = null
                                     Toast.makeText(context, "Gagal merender: ${exportException.message}", Toast.LENGTH_LONG).show()
                                 }
                             })
                             .build()
 
                         activeTransformer = transformer
-                        transformer.start(editedMediaItem, outputFile.absolutePath)
+                        transformer.start(composition, outputFile.absolutePath)
 
                         // Polling progress MediaCodec nyata
                         scope.launch {
@@ -488,11 +561,14 @@ fun DeliverScreen(
                                 delay(150L)
                             }
                         }
+
                     } catch (e: Exception) {
                         isExporting = false
                         progress = 0f
                         state.isExporting = false
                         state.exportProgress = 0f
+                        activeExportAssetsDirectory?.deleteRecursively()
+                        activeExportAssetsDirectory = null
                         Toast.makeText(context, "Error memulai export: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 },
@@ -511,4 +587,141 @@ fun DeliverScreen(
             }
         }
     }
+}
+
+private fun buildEditedClip(
+    clip: TimelineClip,
+    includeVideo: Boolean,
+    includeAudio: Boolean,
+    masterVolume: Float,
+    colorStudioState: ColorStudioState?
+): EditedMediaItem {
+            val uri = Uri.parse(requireNotNull(clip.uriString))
+            val mediaItemBuilder = MediaItem.Builder().setUri(uri)
+            if (clip.mediaType == ClipMediaType.PHOTO) {
+                mediaItemBuilder.setImageDurationMs(clip.durationMs)
+            } else {
+                require(clip.speedMultiplier > 0f && clip.speedMultiplier.isFinite()) {
+                    "Clip speed must be greater than zero."
+                }
+                val sourceDurationMs = (clip.durationMs * clip.speedMultiplier).roundToInt().toLong()
+                mediaItemBuilder.setClippingConfiguration(
+                    MediaItem.ClippingConfiguration.Builder()
+                        .setStartPositionMs(clip.sourceOffsetMs)
+                        .setEndPositionMs(clip.sourceOffsetMs + sourceDurationMs)
+                        .build()
+                )
+            }
+
+            val audioProcessors = mutableListOf<AudioProcessor>()
+            if (includeAudio && clip.speedMultiplier != 1f) {
+                audioProcessors.add(SonicAudioProcessor().apply { setSpeed(clip.speedMultiplier) })
+            }
+            val combinedVolume = clip.volume * masterVolume
+            if (includeAudio && combinedVolume != 1f) {
+                audioProcessors.add(ClipGainAudioProcessor(combinedVolume))
+            }
+            val videoEffects = mutableListOf<androidx.media3.common.Effect>()
+            if (includeVideo && clip.speedMultiplier != 1f) {
+                videoEffects.add(SpeedChangeEffect(clip.speedMultiplier))
+            }
+            if (includeVideo && colorStudioState != null) {
+                val colorEffect = ArunikaColorEffect(colorStudioState)
+                if (!colorEffect.isNoOp()) videoEffects.add(colorEffect)
+            }
+
+            return EditedMediaItem.Builder(mediaItemBuilder.build())
+                .setRemoveAudio(!includeAudio)
+                .setRemoveVideo(!includeVideo)
+                .setEffects(Effects(audioProcessors, videoEffects))
+                .build()
+}
+
+private class ClipGainAudioProcessor(private val gain: Float) : BaseAudioProcessor() {
+            override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+                require(
+                    inputAudioFormat.encoding == C.ENCODING_PCM_16BIT ||
+                        inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
+                ) { "Per-clip volume requires 16-bit or float PCM audio." }
+                return inputAudioFormat
+            }
+
+            override fun queueInput(inputBuffer: ByteBuffer) {
+                val outputBuffer = replaceOutputBuffer(inputBuffer.remaining())
+                    .order(ByteOrder.nativeOrder())
+                val orderedInput = inputBuffer.order(ByteOrder.nativeOrder())
+                if (inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT) {
+                    while (orderedInput.hasRemaining()) {
+                        outputBuffer.putFloat((orderedInput.float * gain).coerceIn(-1f, 1f))
+                    }
+                } else {
+                    while (orderedInput.hasRemaining()) {
+                        val sample = orderedInput.short * gain
+                        outputBuffer.putShort(
+                            sample.roundToInt()
+                                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                                .toShort()
+                        )
+                    }
+                }
+                outputBuffer.flip()
+            }
+}
+
+private fun buildBlackFrameItem(assetsDirectory: File, durationMs: Long): EditedMediaItem {
+    val frameFile = File(assetsDirectory, "black-frame.png")
+    if (!frameFile.exists()) {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        FileOutputStream(frameFile).use { output ->
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                "Could not create a black placeholder frame."
+            }
+        }
+        bitmap.recycle()
+    }
+    val mediaItem = MediaItem.Builder()
+        .setUri(Uri.fromFile(frameFile))
+        .setImageDurationMs(durationMs.coerceAtLeast(1L))
+        .build()
+    return EditedMediaItem.Builder(mediaItem)
+        .setRemoveAudio(true)
+        .build()
+}
+
+private fun buildSilentAudioItem(assetsDirectory: File, durationMs: Long): EditedMediaItem {
+    val sampleRate = 48_000
+    val channelCount = 1
+    val bytesPerSample = 2
+    val dataSize = durationMs * sampleRate * channelCount * bytesPerSample / 1000
+    require(dataSize <= 0xFFFFFFFFL - 36) { "Audio gap is too long to export." }
+    val silenceFile = File(assetsDirectory, "silence-${durationMs}ms.wav")
+    if (!silenceFile.exists() || silenceFile.length() != dataSize + 44) {
+        FileOutputStream(silenceFile).use { output ->
+            val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+            header.put("RIFF".toByteArray(Charsets.US_ASCII))
+            header.putInt((36 + dataSize).toInt())
+            header.put("WAVEfmt ".toByteArray(Charsets.US_ASCII))
+            header.putInt(16)
+            header.putShort(1)
+            header.putShort(channelCount.toShort())
+            header.putInt(sampleRate)
+            header.putInt(sampleRate * channelCount * bytesPerSample)
+            header.putShort((channelCount * bytesPerSample).toShort())
+            header.putShort((bytesPerSample * 8).toShort())
+            header.put("data".toByteArray(Charsets.US_ASCII))
+            header.putInt(dataSize.toInt())
+            output.write(header.array())
+            val zeros = ByteArray(16 * 1024)
+            var remaining = dataSize
+            while (remaining > 0) {
+                val chunkSize = minOf(remaining, zeros.size.toLong()).toInt()
+                output.write(zeros, 0, chunkSize)
+                remaining -= chunkSize
+            }
+        }
+    }
+    return EditedMediaItem.Builder(
+        MediaItem.fromUri(Uri.fromFile(silenceFile))
+    ).setRemoveVideo(true).build()
 }

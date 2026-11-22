@@ -546,7 +546,9 @@ fun ArunikaEditorShell(
                             )
                             ArunikaTab.DELIVER -> DeliverScreen(
                                 state = deliverState,
-                                videoUri = currentVideoUri,
+                                videoClips = editorVideoClips,
+                                audioClips = editorAudioClips,
+                                masterVolume = audioState.masterVolume,
                                 colorStudioState = colorStudioState
                             )
                         }

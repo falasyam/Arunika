@@ -1,6 +1,6 @@
 # 🐛 Arunika — Audit Fitur: Ada Tapi Belum Berfungsi
 
-> Status per commit `50a7f20` (22 Nov 2026)
+> Audit awal dibuat pada commit `50a7f20` (22 Nov 2026); status tiap item diperbarui mengikuti implementasi saat ini.
 
 ---
 
@@ -54,10 +54,10 @@
 
 ### 7. Speed/Duration Clip Tidak Berfungsi
 **Lokasi:** `CutScreen.kt` — Floating Action Island
-**Status:** 🟡 **PARSIAL**
+**Status:** ✅ **SELESAI**
 - ✅ Dialog menyediakan pilihan 0.25x, 0.5x, 1x, 1.5x, 2x, dan 4x serta memperbarui durasi logis klip.
-- ✅ Speed dan source offset disinkronkan ke preview ExoPlayer.
-- ⚠️ Speed belum diterapkan pada export dan belum membentuk playback multi-clip berurutan yang sesungguhnya.
+- ✅ Preview berpindah mengikuti klip di bawah playhead dan menerapkan source offset, speed, serta volume klip aktif.
+- ✅ Export menyusun klip video/foto secara berurutan; speed diterapkan ke timestamp video dan pemrosesan audio tiap klip.
 
 ---
 
@@ -65,8 +65,8 @@
 **Lokasi:** `CutScreen.kt` — Floating Action Island
 **Status:** 🟡 **PARSIAL**
 - ✅ Kontrol volume clip mengubah nilai `TimelineClip.volume`; nilai clip video aktif diterapkan ke `ExoPlayer.volume`.
-- ⚠️ Audio clip pada track A1 belum diputar oleh engine timeline, sehingga volume/mute audio clip belum memengaruhi playback.
-- ⚠️ Volume per clip belum diterapkan saat export.
+- ✅ Export menerapkan volume per klip (termasuk track A1) dan master volume; mute berarti gain nol.
+- ⚠️ Track A1 belum diputar dalam preview timeline; Auto-Ducking juga belum berjalan saat preview.
 
 ---
 
@@ -102,9 +102,9 @@
 
 ### 13. Split Clip Tidak Memotong URI / Durasi Fisik
 **Lokasi:** `CutScreen.kt`
-**Status:** 🟡 **PARSIAL**
-- ✅ Bagian kedua menyimpan `sourceOffsetMs`; preview menghitung posisi seek sumber berdasarkan offset dan speed.
-- ⚠️ URI tetap sama dan hasil export belum memotong sumber menjadi dua media fisik; transisi playback multi-clip belum terintegrasi.
+**Status:** ✅ **SELESAI**
+- Split tetap nondestruktif: bagian kedua menyimpan `sourceOffsetMs`, sedangkan preview menghitung seek sumber dari offset dan speed.
+- Export membentuk segmen dengan clipping start/end sumber dan menyusun hasilnya berurutan; tidak membuat file sumber antara.
 
 ### 14. ProjectListScreen — Thumbnail & Preview Statis
 **Lokasi:** `ProjectListScreen.kt`
