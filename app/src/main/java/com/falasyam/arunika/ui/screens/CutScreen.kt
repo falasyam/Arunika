@@ -11,6 +11,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -29,6 +30,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -48,12 +50,23 @@ import com.falasyam.arunika.ui.components.VideoPlayerView
 import androidx.media3.exoplayer.ExoPlayer
 
 private const val MIN_SPLITTABLE_CLIP_MS = 1000L
+private const val TITLE_FRAME_RATE = 30
+private const val TIMELINE_MILLIS_PER_DP = 30f
 
 private fun splitOffsetAtPlayhead(clip: TimelineClip?, playheadMs: Long): Long? {
     if (clip == null || clip.durationMs < MIN_SPLITTABLE_CLIP_MS) return null
     val offsetMs = playheadMs - clip.startOffsetMs
     return offsetMs.takeIf { it > 0L && it < clip.durationMs }
 }
+
+private fun TitleElement.startTimeMs(): Long =
+    startFrame.coerceAtLeast(0) * 1000L / TITLE_FRAME_RATE
+
+private fun TitleElement.durationMs(): Long =
+    durationFrames.coerceAtLeast(1) * 1000L / TITLE_FRAME_RATE
+
+private fun timelineMsToTitleFrame(timeMs: Long): Int =
+    (timeMs.coerceAtLeast(0L) * TITLE_FRAME_RATE / 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
 /**
  * Tab 1: Cut & Assembly Editor
@@ -261,10 +274,12 @@ fun CutScreen(
 
     // Posisi waktu Playhead saat ini dalam milidetik
     var currentPlayheadMs by remember { mutableStateOf(currentTimeMs) }
-    val totalTimelineDurationMs = remember(videoClips, audioClips) {
+    val titleElements = titlingState?.elements?.toList().orEmpty()
+    val totalTimelineDurationMs = remember(videoClips, audioClips, titleElements) {
         maxOf(
             videoClips.maxOfOrNull { it.startOffsetMs + it.durationMs } ?: 0L,
             audioClips.maxOfOrNull { it.startOffsetMs + it.durationMs } ?: 0L,
+            titleElements.maxOfOrNull { it.startTimeMs() + it.durationMs() } ?: 0L,
             1000L
         )
     }
@@ -378,7 +393,10 @@ fun CutScreen(
                 }
 
                 // 2. Real-time Track V2 Title / Subtitle Overlay dari Fusion Lite
-                titlingState?.elements?.forEach { element ->
+                titleElements.filter {
+                    currentPlayheadMs >= it.startTimeMs() &&
+                        currentPlayheadMs < it.startTimeMs() + it.durationMs()
+                }.forEach { element ->
                     val transform = keyframeState.interpolateTransform(currentPlayheadMs)
                     Box(
                         modifier = Modifier
@@ -390,7 +408,7 @@ fun CutScreen(
                                 )
                             }
                             .scale(transform.scale)
-                            .alpha(transform.opacity)
+                            .alpha((element.opacity * transform.opacity).coerceIn(0f, 1f))
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color(element.bgColor))
                             .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -415,6 +433,8 @@ fun CutScreen(
                                 fontFamily = when (element.font) {
                                     TitleFont.SERIF -> FontFamily.Serif
                                     TitleFont.MONO -> FontFamily.Monospace
+                                    TitleFont.CINEMATIC -> FontFamily.Serif
+                                    TitleFont.HANDWRITTEN -> FontFamily.Cursive
                                     else -> FontFamily.Default
                                 }
                             )
@@ -737,10 +757,11 @@ fun CutScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Badge V1 & A1
+                            // Badge track video, audio, dan teks
                             Surface(
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 shape = RoundedCornerShape(8.dp)
@@ -766,6 +787,17 @@ fun CutScreen(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
                                         color = Color(0xFF10B981)
+                                    )
+                                    Text(
+                                        text = "•",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                    Text(
+                                        text = "V2",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFFB05CF5)
                                     )
                                 }
                             }
@@ -802,6 +834,20 @@ fun CutScreen(
                                 Icon(Icons.Rounded.Audiotrack, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("+ Audio", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            FilledTonalButton(
+                                onClick = {
+                                    titlingState?.addPlainText(timelineMsToTitleFrame(currentPlayheadMs))
+                                        ?.let { title -> titlingState.selectedElementId = title.id }
+                                },
+                                enabled = titlingState != null,
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                Icon(Icons.Rounded.Title, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("+ Teks", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -1110,6 +1156,166 @@ fun CutScreen(
                             }
                         }
                     }
+
+                        // ============================================
+                        // TRACK V2 (TITLE & TEXT OVERLAYS)
+                        // ============================================
+                        Row(
+                            modifier = Modifier
+                                .width(timelineContentWidth)
+                                .height(52.dp)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                if (titleElements.isEmpty()) {
+                                    Surface(
+                                        onClick = {
+                                            titlingState?.addPlainText(timelineMsToTitleFrame(currentPlayheadMs))
+                                        },
+                                        enabled = titlingState != null,
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)
+                                        ),
+                                        modifier = Modifier
+                                            .offset(x = 60.dp)
+                                            .width(260.dp)
+                                            .fillMaxHeight()
+                                            .padding(vertical = 4.dp, horizontal = 2.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.Title,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Ketuk untuk tambah teks",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                            )
+                                        }
+                                    }
+                                }
+
+                                titleElements.forEach { title ->
+                                    val latestTitle by rememberUpdatedState(title)
+                                    val startMs = title.startTimeMs()
+                                    val durationMs = title.durationMs()
+                                    val clipWidth = (durationMs / TIMELINE_MILLIS_PER_DP).dp
+                                    val isSelected = title.id == titlingState?.selectedElementId
+
+                                    Box(
+                                        modifier = Modifier
+                                            .offset(x = 60.dp + (startMs / TIMELINE_MILLIS_PER_DP).dp)
+                                            .width(clipWidth.coerceAtLeast(48.dp))
+                                            .fillMaxHeight()
+                                            .padding(horizontal = 2.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                            .border(
+                                                width = if (isSelected) 2.dp else 0.dp,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable {
+                                                titlingState?.selectedElementId = title.id
+                                                currentPlayheadMs = startMs
+                                            }
+                                            .pointerInput(title.id, density.density) {
+                                                var initialStartFrame = title.startFrame.toFloat()
+                                                var accumulatedDragFrames = 0f
+                                                detectDragGestures(
+                                                    onDragStart = {
+                                                        initialStartFrame = latestTitle.startFrame.toFloat()
+                                                        accumulatedDragFrames = 0f
+                                                    }
+                                                ) { change, dragAmount ->
+                                                    change.consume()
+                                                    accumulatedDragFrames +=
+                                                        dragAmount.x / density.density *
+                                                            (TITLE_FRAME_RATE / 1000f * TIMELINE_MILLIS_PER_DP)
+                                                    val newStartFrame = (initialStartFrame + accumulatedDragFrames)
+                                                        .roundToInt()
+                                                        .coerceAtLeast(0)
+                                                    titlingState?.updateElement(
+                                                        latestTitle.copy(startFrame = newStartFrame)
+                                                    )
+                                                }
+                                            }
+                                            .padding(start = 8.dp, end = 12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(end = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.Title,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = title.text.ifBlank { "Teks" },
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Text(
+                                                text = String.format(java.util.Locale.US, "%.1fs", durationMs / 1000f),
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontSize = 9.sp
+                                            )
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.CenterEnd)
+                                                .fillMaxHeight()
+                                                .width(12.dp)
+                                                .background(
+                                                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.28f),
+                                                    RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                                                )
+                                                .pointerInput(title.id, density.density) {
+                                                    var initialDurationFrames = title.durationFrames.toFloat()
+                                                    var accumulatedResizeFrames = 0f
+                                                    detectDragGestures(
+                                                        onDragStart = {
+                                                            initialDurationFrames = latestTitle.durationFrames.toFloat()
+                                                            accumulatedResizeFrames = 0f
+                                                        }
+                                                    ) { change, dragAmount ->
+                                                        change.consume()
+                                                        accumulatedResizeFrames +=
+                                                            dragAmount.x / density.density *
+                                                                (TITLE_FRAME_RATE / 1000f * TIMELINE_MILLIS_PER_DP)
+                                                        val newDurationFrames = (initialDurationFrames + accumulatedResizeFrames)
+                                                            .roundToInt()
+                                                            .coerceAtLeast(1)
+                                                        titlingState?.updateElement(
+                                                            latestTitle.copy(durationFrames = newDurationFrames)
+                                                        )
+                                                    }
+                                                }
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
                     // Fixed playhead; horizontal scrolling moves the tracks underneath.
                     Box(

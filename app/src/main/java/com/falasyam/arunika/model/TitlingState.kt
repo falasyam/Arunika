@@ -1,6 +1,9 @@
 package com.falasyam.arunika.model
 
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import java.util.UUID
 import java.io.Serializable
 
@@ -8,6 +11,7 @@ import java.io.Serializable
  * Gaya visual title element.
  */
 enum class TitleStyle(val displayName: String) {
+    PLAIN_TEXT("Plain Text"),
     LOWER_THIRD("Lower Third"),
     CHAPTER_MARKER("Chapter Marker"),
     CAPTION("Caption"),
@@ -83,6 +87,26 @@ data class TitleElement(
 class TitlingState {
     /** Daftar semua title element aktif (observable oleh Compose). */
     val elements = mutableStateListOf<TitleElement>()
+    var selectedElementId by mutableStateOf<String?>(null)
+
+    /** Tambah teks sederhana tanpa menerapkan template atau gaya dekoratif. */
+    fun addPlainText(startFrame: Int = 0): TitleElement {
+        val element = TitleElement(
+            text = "Teks",
+            x = 0.5f,
+            y = 0.5f,
+            style = TitleStyle.PLAIN_TEXT,
+            animationType = TitleAnimation.NONE,
+            startFrame = startFrame.coerceAtLeast(0),
+            durationFrames = 90,
+            fontSize = 24f,
+            bgColor = 0x00000000,
+            font = TitleFont.SANS
+        )
+        elements.add(element)
+        selectedElementId = element.id
+        return element
+    }
 
     /** Tambah elemen baru dengan preset Lower Third. */
     fun addLowerThird(text: String = "Speaker Name | Role"): TitleElement {
@@ -139,6 +163,7 @@ class TitlingState {
     /** Hapus elemen berdasarkan ID. */
     fun removeElement(id: String) {
         elements.removeIf { it.id == id }
+        if (selectedElementId == id) selectedElementId = elements.firstOrNull()?.id
     }
 
     /** Update elemen yang sudah ada. */

@@ -97,7 +97,10 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
   - Tambahkan scopes yang benar-benar membaca frame aktif serta kontrol before/after.
   - Pertahankan ruang warna input/output dan LUT yang sama di preview dan export.
 - **Titling dan captions**
-  - Sediakan template yang dapat diedit, area aman untuk format sosial, dan kontrol durasi di timeline.
+  - Izinkan membuat teks kosong tanpa template; template tetap menjadi opsi cepat.
+  - Sediakan pilihan font bawaan (sans, serif, monospace, dan cursive), serta pastikan opacity dan posisi tetap konsisten saat teks diedit atau digeser.
+  - Tampilkan title pada lane V2 di timeline utama; pengguna dapat menambahkan teks pada playhead, memindahkan awalnya, dan mengatur durasi dengan trim handle.
+  - Pastikan panel teks menyesuaikan ruang saat keyboard terbuka dan preview/export mengikuti rentang waktu title.
   - Beri editor caption untuk koreksi teks dan timing; dukung ekspor subtitle bila format render memungkinkan.
 - **Audio Studio**
   - Tambahkan mixer per-track, pan, gain automation, dan ducking berbasis level dialog dengan opsi manual override.

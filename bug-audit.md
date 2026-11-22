@@ -158,6 +158,15 @@
 - Data LUT 1D/3D kini diubah menjadi LUT GPU Media3, dengan intensity blend, dan dipasang pada pipeline preview serta export. Export memberi error eksplisit bila data custom LUT tidak tersedia.
 - Pixel 6a: export H.264 SDR dengan custom LUT selesai dan file muncul di `Movies/Arunika`. HDR masih mengikuti keterbatasan dukungan `SingleColorLut` pada Media3 1.4.1.
 
+### 21. Titling: Opacity, Drag, Keyboard, dan Timeline
+**Lokasi:** `TitlingScreen.kt`, `CutScreen.kt`, `TitlingState.kt`
+**Status:** ✅ **DIPERBAIKI; BUILD BERHASIL**
+- Opacity elemen teks diterapkan pada preview Titling dan Cut; drag memakai state elemen terbaru agar perubahan teks/gaya tidak tertimpa posisi lama.
+- Keyboard mendapat ruang melalui inset IME; editor teks tetap dapat digulir pada tinggi layar yang tersisa.
+- Teks dapat dibuat tanpa template dan memilih font bawaan Sans, Serif, Mono, Cinematic, atau Handwritten.
+- Lane title V2 di timeline utama dapat menambah teks pada playhead, memindahkan klip teks, serta mengatur durasi lewat handle kanan. Preview Cut dan export mengikuti rentang waktu title.
+- Belum divalidasi secara interaktif pada perangkat setelah perubahan ini.
+
 ---
 
 ## 📋 Prioritas Perbaikan yang Disarankan

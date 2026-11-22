@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -55,14 +56,17 @@ fun TitlingScreen(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    var selectedElementId by remember { mutableStateOf<String?>(null) }
-    var selectedSubtab by remember { mutableIntStateOf(0) } // 0: Templates, 1: Text & Style, 2: Animation & Captions
+    var selectedSubtab by remember(titlingState) {
+        mutableIntStateOf(if (titlingState.selectedElementId != null) 1 else 0)
+    } // 0: Templates, 1: Text & Style, 2: Animation & Captions
 
-    val selectedElement = titlingState.elements.find { it.id == selectedElementId } ?: titlingState.elements.firstOrNull()
+    val selectedElement = titlingState.elements.find { it.id == titlingState.selectedElementId }
+        ?: titlingState.elements.firstOrNull()
 
     Column(
         modifier = modifier
             .fillMaxSize()
+            .imePadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
         // ========================================================
@@ -111,8 +115,7 @@ fun TitlingScreen(
                 // Render all Title Elements as overlays
                 titlingState.elements.forEach { element ->
                     val isSelected = element.id == selectedElement?.id
-                    var offsetX by remember(element.id) { mutableFloatStateOf(element.x) }
-                    var offsetY by remember(element.id) { mutableFloatStateOf(element.y) }
+                    val latestElement by rememberUpdatedState(element)
                     val transform = keyframeState.interpolateTransform(0L)
 
                     Box(
@@ -120,12 +123,12 @@ fun TitlingScreen(
                             .align(Alignment.Center)
                             .offset {
                                 IntOffset(
-                                    (((offsetX - 0.5f) * canvasWidthPx) + transform.posX * canvasWidthPx / 100f).roundToInt(),
-                                    (((offsetY - 0.5f) * canvasHeightPx) + transform.posY * canvasHeightPx / 100f).roundToInt()
+                                    (((element.x - 0.5f) * canvasWidthPx) + transform.posX * canvasWidthPx / 100f).roundToInt(),
+                                    (((element.y - 0.5f) * canvasHeightPx) + transform.posY * canvasHeightPx / 100f).roundToInt()
                                 )
                             }
                             .scale(transform.scale)
-                            .alpha(transform.opacity)
+                            .alpha((element.opacity * transform.opacity).coerceIn(0f, 1f))
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(element.bgColor))
                             .border(
@@ -135,14 +138,21 @@ fun TitlingScreen(
                             )
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                selectedElementId = element.id
+                                titlingState.selectedElementId = element.id
                             }
-                            .pointerInput(element.id) {
-                                detectDragGestures { change, dragAmount ->
+                            .pointerInput(element.id, canvasWidthPx, canvasHeightPx) {
+                                var offsetX = latestElement.x
+                                var offsetY = latestElement.y
+                                detectDragGestures(
+                                    onDragStart = {
+                                        offsetX = latestElement.x
+                                        offsetY = latestElement.y
+                                    }
+                                ) { change, dragAmount ->
                                     change.consume()
                                     offsetX = (offsetX + dragAmount.x / canvasWidthPx).coerceIn(0f, 1f)
                                     offsetY = (offsetY + dragAmount.y / canvasHeightPx).coerceIn(0f, 1f)
-                                    titlingState.updateElement(element.copy(x = offsetX, y = offsetY))
+                                    titlingState.updateElement(latestElement.copy(x = offsetX, y = offsetY))
                                 }
                             }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -167,6 +177,8 @@ fun TitlingScreen(
                                 fontFamily = when (element.font) {
                                     TitleFont.SERIF -> FontFamily.Serif
                                     TitleFont.MONO -> FontFamily.Monospace
+                                    TitleFont.CINEMATIC -> FontFamily.Serif
+                                    TitleFont.HANDWRITTEN -> FontFamily.Cursive
                                     else -> FontFamily.Default
                                 }
                             )
@@ -210,7 +222,8 @@ fun TitlingScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(340.dp),
+                .weight(1f, fill = false)
+                .heightIn(max = 340.dp),
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             tonalElevation = 6.dp
@@ -265,6 +278,19 @@ fun TitlingScreen(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val element = titlingState.addPlainText()
+                                    titlingState.selectedElementId = element.id
+                                    selectedSubtab = 1
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Rounded.Add, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Teks kosong")
+                            }
+
                             Text(
                                 text = "Quick Title Templates (Track V2)",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -281,7 +307,8 @@ fun TitlingScreen(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         val el = titlingState.addLowerThird("Dr. John Doe | Director of Photography")
-                                        selectedElementId = el.id
+                                        titlingState.selectedElementId = el.id
+                                        selectedSubtab = 1
                                     },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
@@ -294,7 +321,8 @@ fun TitlingScreen(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         val el = titlingState.addOpeningTitle("ARUNIKA")
-                                        selectedElementId = el.id
+                                        titlingState.selectedElementId = el.id
+                                        selectedSubtab = 1
                                     },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
@@ -307,7 +335,8 @@ fun TitlingScreen(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         val el = titlingState.addCaption("Cinematic color grading made mobile 🔥")
-                                        selectedElementId = el.id
+                                        titlingState.selectedElementId = el.id
+                                        selectedSubtab = 1
                                     },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
@@ -334,7 +363,7 @@ fun TitlingScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            selectedElementId = el.id
+                                            titlingState.selectedElementId = el.id
                                         }
                                 ) {
                                     Row(
@@ -375,6 +404,45 @@ fun TitlingScreen(
                                     singleLine = true
                                 )
 
+                                var fontMenuExpanded by remember(selectedElement.id) { mutableStateOf(false) }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Font bawaan", fontSize = 12.sp)
+                                    Box {
+                                        OutlinedButton(onClick = { fontMenuExpanded = true }) {
+                                            Text(selectedElement.font.displayName)
+                                            Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+                                        }
+                                        DropdownMenu(
+                                            expanded = fontMenuExpanded,
+                                            onDismissRequest = { fontMenuExpanded = false }
+                                        ) {
+                                            TitleFont.values().forEach { font ->
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            font.displayName,
+                                                            fontFamily = when (font) {
+                                                                TitleFont.SERIF, TitleFont.CINEMATIC -> FontFamily.Serif
+                                                                TitleFont.MONO -> FontFamily.Monospace
+                                                                TitleFont.HANDWRITTEN -> FontFamily.Cursive
+                                                                TitleFont.SANS -> FontFamily.Default
+                                                            }
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        titlingState.updateElement(selectedElement.copy(font = font))
+                                                        fontMenuExpanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
@@ -397,14 +465,14 @@ fun TitlingScreen(
                                     Slider(
                                         value = selectedElement.opacity,
                                         onValueChange = { titlingState.updateElement(selectedElement.copy(opacity = it)) },
-                                        valueRange = 0.1f..1.0f,
+                                        valueRange = 0.0f..1.0f,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text("${(selectedElement.opacity * 100).toInt()}%", fontSize = 11.sp, modifier = Modifier.width(40.dp))
                                 }
                             }
                         } else {
-                            Text("Pilih atau buat title preset di tab Presets terlebih dahulu.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Tambah teks kosong atau pilih salah satu template.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -444,7 +512,7 @@ fun TitlingScreen(
                                 }
                             }
                         } else {
-                            Text("Pilih atau buat title preset di tab Presets terlebih dahulu.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Tambah teks kosong atau pilih salah satu template.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
