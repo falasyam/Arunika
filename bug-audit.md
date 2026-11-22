@@ -103,10 +103,11 @@
 - Thumbnail frame video diekstrak dengan `MediaMetadataRetriever` dan ditampilkan pada klip yang memiliki URI video.
 - Klip preset/foto tanpa URI video tetap menggunakan warna dasar.
 
-### 13. Split Clip Tidak Memotong URI / Durasi Fisik
+### 13. Split Clip Tidak Mengikuti Playhead
 **Lokasi:** `CutScreen.kt`
 **Status:** ✅ **SELESAI**
-- Split tetap nondestruktif: bagian kedua menyimpan `sourceOffsetMs`, sedangkan preview menghitung seek sumber dari offset dan speed.
+- Posisi split mengikuti playhead selama berada di dalam klip, bukan selalu membagi durasi klip menjadi dua; tombol dinonaktifkan di luar batas klip.
+- Bagian kedua menyimpan `sourceOffsetMs` berdasarkan posisi split dan kecepatan klip. Offset klip lain dipertahankan agar overlap audio maupun susunan track tidak berubah.
 - Export membentuk segmen dengan clipping start/end sumber dan menyusun hasilnya berurutan; tidak membuat file sumber antara.
 
 ### 14. ProjectListScreen — Thumbnail & Preview Statis

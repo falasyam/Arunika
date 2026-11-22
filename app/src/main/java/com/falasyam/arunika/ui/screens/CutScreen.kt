@@ -47,6 +47,14 @@ import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.VideoPlayerView
 import androidx.media3.exoplayer.ExoPlayer
 
+private const val MIN_SPLITTABLE_CLIP_MS = 1000L
+
+private fun splitOffsetAtPlayhead(clip: TimelineClip?, playheadMs: Long): Long? {
+    if (clip == null || clip.durationMs < MIN_SPLITTABLE_CLIP_MS) return null
+    val offsetMs = playheadMs - clip.startOffsetMs
+    return offsetMs.takeIf { it > 0L && it < clip.durationMs }
+}
+
 /**
  * Tab 1: Cut & Assembly Editor
  * - Multi-Track Magnetic Timeline (V1: Video & Foto, A1: Audio Track)
@@ -128,7 +136,15 @@ fun CutScreen(
     var selectedClipId by remember(initialClips, initialAudioClips) {
         mutableStateOf(initialClips.firstOrNull()?.id ?: initialAudioClips.firstOrNull()?.id ?: "")
     }
-    var selectedClipMediaType by remember { mutableStateOf(ClipMediaType.VIDEO) }
+    var selectedClipMediaType by remember(initialClips, initialAudioClips) {
+        mutableStateOf(
+            when {
+                initialClips.isNotEmpty() -> initialClips.first().mediaType
+                initialAudioClips.isNotEmpty() -> ClipMediaType.AUDIO
+                else -> ClipMediaType.VIDEO
+            }
+        )
+    }
 
     var nextIdCounter by remember { mutableStateOf(10) }
     var showImportDialog by remember { mutableStateOf(false) }
@@ -497,66 +513,68 @@ fun CutScreen(
             ) {
                 val hasSelectedClip = if (selectedClipMediaType == ClipMediaType.AUDIO) audioClips.any { it.id == selectedClipId } else videoClips.any { it.id == selectedClipId }
                 val canDelete = if (selectedClipMediaType == ClipMediaType.AUDIO) audioClips.isNotEmpty() else videoClips.isNotEmpty()
+                val selectedClip = if (selectedClipMediaType == ClipMediaType.AUDIO) {
+                    audioClips.find { it.id == selectedClipId }
+                } else {
+                    videoClips.find { it.id == selectedClipId }
+                }
+                val splitOffsetMs = splitOffsetAtPlayhead(selectedClip, currentPlayheadMs)
 
                 // 1. Split Clip (Video/Foto atau Audio)
                 IconButton(
                     onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (selectedClipMediaType == ClipMediaType.AUDIO) {
-                        val idx = audioClips.indexOfFirst { it.id == selectedClipId }
-                        if (idx != -1) {
-                            val target = audioClips[idx]
-                            if (target.durationMs >= 1000) {
-                                val half = target.durationMs / 2
-                                val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_pt1")
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (selectedClipMediaType == ClipMediaType.AUDIO) {
+                            val idx = audioClips.indexOfFirst { it.id == selectedClipId }
+                            val target = audioClips.getOrNull(idx)
+                            val offsetMs = splitOffsetAtPlayhead(target, currentPlayheadMs)
+                            if (target != null && offsetMs != null) {
+                                val part1 = target.copy(
+                                    durationMs = offsetMs,
+                                    name = "${target.name.substringBeforeLast(".")}_pt1"
+                                )
                                 val newId = "a${nextIdCounter++}"
                                 val part2 = target.copy(
                                     id = newId,
-                                    durationMs = target.durationMs - half,
-                                    startOffsetMs = target.startOffsetMs + half,
-                                    sourceOffsetMs = target.sourceOffsetMs + (half * target.speedMultiplier).toLong(),
+                                    durationMs = target.durationMs - offsetMs,
+                                    startOffsetMs = target.startOffsetMs + offsetMs,
+                                    sourceOffsetMs = target.sourceOffsetMs + (offsetMs * target.speedMultiplier).toLong(),
                                     name = "${target.name.substringBeforeLast(".")}_pt2"
                                 )
-                                val mutable = audioClips.toMutableList()
-                                mutable.removeAt(idx)
-                                mutable.add(idx, part1)
-                                mutable.add(idx + 1, part2)
-                                // Recalculate semua startOffsetMs agar tidak ada gap/overlap
-                                var offset = 0L
-                                audioClips = mutable.mapIndexed { i, c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
+                                val updatedClips = audioClips.toMutableList()
+                                updatedClips[idx] = part1
+                                updatedClips.add(idx + 1, part2)
+                                audioClips = updatedClips
                                 selectedClipId = newId
                             }
-                        }
-                    } else {
-                        val idx = videoClips.indexOfFirst { it.id == selectedClipId }
-                        if (idx != -1) {
-                            val target = videoClips[idx]
-                            if (target.durationMs >= 1000) {
-                                val half = target.durationMs / 2
-                                val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_part1")
+                        } else {
+                            val idx = videoClips.indexOfFirst { it.id == selectedClipId }
+                            val target = videoClips.getOrNull(idx)
+                            val offsetMs = splitOffsetAtPlayhead(target, currentPlayheadMs)
+                            if (target != null && offsetMs != null) {
+                                val part1 = target.copy(
+                                    durationMs = offsetMs,
+                                    name = "${target.name.substringBeforeLast(".")}_part1"
+                                )
                                 val newId = "v${nextIdCounter++}"
                                 val part2 = target.copy(
                                     id = newId,
-                                    durationMs = target.durationMs - half,
-                                    startOffsetMs = target.startOffsetMs + half,
-                                    sourceOffsetMs = target.sourceOffsetMs + (half * target.speedMultiplier).toLong(),
+                                    durationMs = target.durationMs - offsetMs,
+                                    startOffsetMs = target.startOffsetMs + offsetMs,
+                                    sourceOffsetMs = target.sourceOffsetMs + (offsetMs * target.speedMultiplier).toLong(),
                                     name = "${target.name.substringBeforeLast(".")}_part2"
                                 )
-                                val mutable = videoClips.toMutableList()
-                                mutable.removeAt(idx)
-                                mutable.add(idx, part1)
-                                mutable.add(idx + 1, part2)
-                                // Recalculate semua startOffsetMs agar tidak ada gap/overlap
-                                var offset = 0L
-                                videoClips = mutable.mapIndexed { i, c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
+                                val updatedClips = videoClips.toMutableList()
+                                updatedClips[idx] = part1
+                                updatedClips.add(idx + 1, part2)
+                                videoClips = updatedClips
                                 selectedClipId = newId
                             }
                         }
-                    }
                     },
-                    enabled = hasSelectedClip
+                    enabled = splitOffsetMs != null
                 ) {
-                    Icon(Icons.Rounded.ContentCut, contentDescription = "Split Klip")
+                    Icon(Icons.Rounded.ContentCut, contentDescription = "Split klip pada playhead")
                 }
 
                 // 2. Ripple Delete
