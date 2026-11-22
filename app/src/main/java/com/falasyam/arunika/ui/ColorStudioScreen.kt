@@ -35,6 +35,7 @@ import com.falasyam.arunika.ui.components.InteractiveColorWheel
 import com.falasyam.arunika.ui.components.RealtimeScopeMonitor
 import com.falasyam.arunika.ui.components.SplitScreenCompareOverlay
 import com.falasyam.arunika.ui.components.VideoPlayerView
+import androidx.media3.exoplayer.ExoPlayer
 
 /**
  * Color Studio Pro:
@@ -51,7 +52,8 @@ fun ColorStudioScreen(
     videoUri: String? = null,
     isPlaying: Boolean = false,
     onTogglePlay: () -> Unit = {},
-    onNavigateTab: (String) -> Unit = {}
+    onNavigateTab: (String) -> Unit = {},
+    sharedExoPlayer: ExoPlayer? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -116,7 +118,8 @@ fun ColorStudioScreen(
                     uri = videoUri,
                     isPlaying = isPlaying,
                     colorState = if (!isBypassed) state else null,
-                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
+                                    sharedExoPlayer = sharedExoPlayer
                 )
 
                 // Split-Screen label overlay BEFORE / AFTER (canvas ringan, bukan grading)

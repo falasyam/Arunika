@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.RgbMatrix
@@ -46,8 +47,11 @@ fun VideoPlayerView(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     seekToMs: Long = 0L,
+    volume: Float = 1.0f,
+    speedMultiplier: Float = 1.0f,
     colorState: ColorStudioState? = null,
-    onDurationReady: (Long) -> Unit = {}
+    onDurationReady: (Long) -> Unit = {},
+    sharedExoPlayer: ExoPlayer? = null
 ) {
     val context = LocalContext.current
 
@@ -59,7 +63,8 @@ fun VideoPlayerView(
 
         Box(modifier = modifier) {
             if (!hasError) {
-                val exoPlayer = remember(uri) {
+                // Use shared ExoPlayer if provided, otherwise create local one
+                val exoPlayer = sharedExoPlayer ?: remember(uri) {
                     ExoPlayer.Builder(context).build().apply {
                         setMediaItem(MediaItem.fromUri(Uri.parse(uri)))
                         repeatMode = Player.REPEAT_MODE_ALL
@@ -77,8 +82,11 @@ fun VideoPlayerView(
                     }
                 }
 
-                DisposableEffect(exoPlayer) {
-                    onDispose { exoPlayer.release() }
+                // Only dispose if we created the player locally
+                if (sharedExoPlayer == null) {
+                    DisposableEffect(exoPlayer) {
+                        onDispose { exoPlayer.release() }
+                    }
                 }
 
                 // ============================================================
@@ -103,6 +111,16 @@ fun VideoPlayerView(
                 // Sync play/pause state
                 LaunchedEffect(isPlaying) {
                     if (isPlaying) exoPlayer.play() else exoPlayer.pause()
+                }
+
+                // Sync volume state
+                LaunchedEffect(volume) {
+                    exoPlayer.volume = volume.coerceIn(0f, 1f)
+                }
+
+                // Sync speed multiplier state
+                LaunchedEffect(speedMultiplier) {
+                    exoPlayer.playbackParameters = PlaybackParameters(speedMultiplier.coerceIn(0.1f, 4.0f))
                 }
 
                 // Sync seek position jika seekToMs berubah signifikan

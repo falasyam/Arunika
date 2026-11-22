@@ -1,6 +1,7 @@
 package com.falasyam.arunika.ui.screens
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -9,6 +10,8 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +25,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -37,6 +44,7 @@ import kotlin.math.roundToInt
 import com.falasyam.arunika.model.*
 import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.VideoPlayerView
+import androidx.media3.exoplayer.ExoPlayer
 
 /**
  * Tab 1: Cut & Assembly Editor
@@ -56,7 +64,9 @@ fun CutScreen(
     onVideoUriChanged: (String?) -> Unit = {},
     currentTimeMs: Long = 0L,
     isPlaying: Boolean = false,
-    onTogglePlay: () -> Unit = {}
+    onTogglePlay: () -> Unit = {},
+    sharedExoPlayer: ExoPlayer? = null,
+    keyframeState: KeyframeState = remember { KeyframeState() }
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -66,6 +76,25 @@ fun CutScreen(
 
     // State Klip Audio (Track A1) pada Timeline yang sama
     var audioClips by remember(initialAudioClips) { mutableStateOf(initialAudioClips) }
+    val clipThumbnails = remember { mutableStateMapOf<String, Bitmap>() }
+
+    LaunchedEffect(videoClips) {
+        videoClips.filter { it.uriString != null && it.mediaType == ClipMediaType.VIDEO }
+            .forEach { clip ->
+                if (clipThumbnails.containsKey(clip.id)) return@forEach
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(context, Uri.parse(clip.uriString))
+                    retriever.getFrameAtTime(
+                        (clip.sourceOffsetMs * 1000).coerceAtMost(1_000_000_000),
+                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                    )?.let { clipThumbnails[clip.id] = it }
+                } catch (_: Exception) {
+                } finally {
+                    retriever.release()
+                }
+            }
+    }
 
     // ID dan Tipe klip yang sedang aktif dipilih
     var selectedClipId by remember(initialClips, initialAudioClips) {
@@ -76,6 +105,8 @@ fun CutScreen(
     var nextIdCounter by remember { mutableStateOf(10) }
     var showImportDialog by remember { mutableStateOf(false) }
     var importDialogInitialTab by remember { mutableStateOf(0) } // 0: Video/Foto, 1: Audio
+    var showSpeedDialog by remember { mutableStateOf(false) }
+    var showVolumeDialog by remember { mutableStateOf(false) }
 
     // Helper untuk mengekstrak durasi media fisik dari URI
     fun extractMediaDurationMs(uri: Uri, defaultDuration: Long): Long {
@@ -219,7 +250,7 @@ fun CutScreen(
             val ratio = aspectRatio.ratioFloat
 
             // Bingkai aspek rasio video responsif (16:9, 9:16, 1:1, 4:5, 21:9)
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .padding(8.dp)
                     .aspectRatio(ratio, matchHeightConstraintsFirst = aspectRatio.isVertical)
@@ -228,13 +259,23 @@ fun CutScreen(
                     .background(Color(0xFF1E1E24)),
                 contentAlignment = Alignment.Center
             ) {
+                val canvasWidthPx = constraints.maxWidth
+                val canvasHeightPx = constraints.maxHeight
+
                 // Tampilan preview video nyata menggunakan ExoPlayer
                 // ✅ Fix #1: colorStudioState diteruskan ke VideoPlayerView untuk grading GPU
                 VideoPlayerView(
                     uri = currentVideoUri,
                     isPlaying = isPlaying,
+                    seekToMs = if (activeClip != null) {
+                        activeClip.sourceOffsetMs +
+                            (((currentPlayheadMs - activeClip.startOffsetMs).coerceAtLeast(0L) * activeClip.speedMultiplier).toLong())
+                    } else 0L,
+                    volume = activeClip?.volume ?: 1.0f,
+                    speedMultiplier = activeClip?.speedMultiplier ?: 1.0f,
                     colorState = colorStudioState,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    sharedExoPlayer = sharedExoPlayer
                 )
 
                 // 1. Real-time Color Grading Effect Overlay (Wheels, LUT, CST, Luma)
@@ -248,15 +289,18 @@ fun CutScreen(
 
                 // 2. Real-time Track V2 Title / Subtitle Overlay dari Fusion Lite
                 titlingState?.elements?.forEach { element ->
+                    val transform = keyframeState.interpolateTransform(currentPlayheadMs)
                     Box(
                         modifier = Modifier
                             .align(Alignment.Center)
                             .offset {
                                 IntOffset(
-                                    (element.x * 240).roundToInt(),
-                                    (element.y * 160).roundToInt()
+                                    (((element.x - 0.5f) * canvasWidthPx) + transform.posX * canvasWidthPx / 100f).roundToInt(),
+                                    (((element.y - 0.5f) * canvasHeightPx) + transform.posY * canvasHeightPx / 100f).roundToInt()
                                 )
                             }
+                            .scale(transform.scale)
+                            .alpha(transform.opacity)
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color(element.bgColor))
                             .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -392,7 +436,13 @@ fun CutScreen(
                                 val half = target.durationMs / 2
                                 val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_pt1")
                                 val newId = "a${nextIdCounter++}"
-                                val part2 = target.copy(id = newId, durationMs = target.durationMs - half, startOffsetMs = target.startOffsetMs + half, name = "${target.name.substringBeforeLast(".")}_pt2")
+                                val part2 = target.copy(
+                                    id = newId,
+                                    durationMs = target.durationMs - half,
+                                    startOffsetMs = target.startOffsetMs + half,
+                                    sourceOffsetMs = target.sourceOffsetMs + (half * target.speedMultiplier).toLong(),
+                                    name = "${target.name.substringBeforeLast(".")}_pt2"
+                                )
                                 val mutable = audioClips.toMutableList()
                                 mutable.removeAt(idx)
                                 mutable.add(idx, part1)
@@ -411,7 +461,13 @@ fun CutScreen(
                                 val half = target.durationMs / 2
                                 val part1 = target.copy(durationMs = half, name = "${target.name.substringBeforeLast(".")}_part1")
                                 val newId = "v${nextIdCounter++}"
-                                val part2 = target.copy(id = newId, durationMs = target.durationMs - half, startOffsetMs = target.startOffsetMs + half, name = "${target.name.substringBeforeLast(".")}_part2")
+                                val part2 = target.copy(
+                                    id = newId,
+                                    durationMs = target.durationMs - half,
+                                    startOffsetMs = target.startOffsetMs + half,
+                                    sourceOffsetMs = target.sourceOffsetMs + (half * target.speedMultiplier).toLong(),
+                                    name = "${target.name.substringBeforeLast(".")}_part2"
+                                )
                                 val mutable = videoClips.toMutableList()
                                 mutable.removeAt(idx)
                                 mutable.add(idx, part1)
@@ -462,45 +518,52 @@ fun CutScreen(
                     Icon(Icons.Rounded.DeleteSweep, contentDescription = "Ripple Delete")
                 }
 
-                // 3. Speed / Duration Toggle
+                // 3. Speed / Duration Settings
                 IconButton(
                     onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    if (selectedClipMediaType == ClipMediaType.AUDIO) {
-                        val idx = audioClips.indexOfFirst { it.id == selectedClipId }
-                        if (idx != -1) {
-                            val target = audioClips[idx]
-                            val newVol = if (target.volume > 0.5f) 0.3f else 1.0f
-                            val mutable = audioClips.toMutableList()
-                            mutable[idx] = target.copy(volume = newVol)
-                            audioClips = mutable
-                        }
-                    } else {
-                        val idx = videoClips.indexOfFirst { it.id == selectedClipId }
-                        if (idx != -1) {
-                            val target = videoClips[idx]
-                            val newSpeed = when (target.speedMultiplier) {
-                                1.0f -> 1.5f
-                                1.5f -> 2.0f
-                                2.0f -> 0.5f
-                                else -> 1.0f
-                            }
-                            val baseDuration = (target.durationMs * target.speedMultiplier).toLong()
-                            val newDur = (baseDuration / newSpeed).toLong().coerceAtLeast(500L)
-                            val mutable = videoClips.toMutableList()
-                            mutable[idx] = target.copy(durationMs = newDur, speedMultiplier = newSpeed)
-                            var offset = 0L
-                            videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
-                        }
-                    }
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showSpeedDialog = true
                     },
                     enabled = hasSelectedClip
                 ) {
-                    val icon = if (selectedClipMediaType == ClipMediaType.AUDIO) Icons.Rounded.VolumeUp else Icons.Rounded.Speed
-                    Icon(icon, contentDescription = "Speed / Volume")
+                    Icon(Icons.Rounded.Speed, contentDescription = "Kecepatan Klip")
                 }
 
-                // 4. Duplicate
+                // 4. Volume / Mute Settings
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showVolumeDialog = true
+                    },
+                    enabled = hasSelectedClip
+                ) {
+                    val currentVol = if (selectedClipMediaType == ClipMediaType.AUDIO) {
+                        audioClips.find { it.id == selectedClipId }?.volume ?: 1.0f
+                    } else {
+                        videoClips.find { it.id == selectedClipId }?.volume ?: 1.0f
+                    }
+                    val icon = if (currentVol == 0f) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp
+                    Icon(icon, contentDescription = "Volume / Mute Klip")
+                }
+
+                // 5. Tambah Keyframe Scale pada posisi playhead
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        val currentTransform = keyframeState.interpolateTransform(currentPlayheadMs)
+                        val nextScale = if (currentTransform.scale >= 1.2f) 1.0f else currentTransform.scale + 0.1f
+                        keyframeState.addOrUpdateKeyframe(
+                            timeMs = currentPlayheadMs,
+                            property = AnimProperty.SCALE,
+                            value = nextScale
+                        )
+                    },
+                    enabled = hasSelectedClip
+                ) {
+                    Icon(Icons.Rounded.AutoFixHigh, contentDescription = "Tambah keyframe")
+                }
+
+                // 6. Duplicate
                 IconButton(
                     onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -675,6 +738,23 @@ fun CutScreen(
                             .weight(1f)
                             .horizontalScroll(timelineScroll)
                             .padding(vertical = 4.dp)
+                            .pointerInput(totalTimelineDurationMs) {
+                                detectDragGestures(
+                                    onDragStart = { position ->
+                                        val dpPerMs = with(density) { 1.dp.toPx() / 30f }
+                                        val timelinePx = position.x + timelineScroll.value - with(density) { 60.dp.toPx() }
+                                        currentPlayheadMs = (timelinePx / dpPerMs).toLong()
+                                            .coerceIn(0L, totalTimelineDurationMs)
+                                    },
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        val dpPerMs = with(density) { 1.dp.toPx() / 30f }
+                                        val timelinePx = change.position.x + timelineScroll.value - with(density) { 60.dp.toPx() }
+                                        currentPlayheadMs = (timelinePx / dpPerMs).toLong()
+                                            .coerceIn(0L, totalTimelineDurationMs)
+                                    }
+                                )
+                            }
                     ) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -750,6 +830,36 @@ fun CutScreen(
                                             }
                                             .padding(8.dp)
                                     ) {
+                                        clipThumbnails[clip.id]?.let { bitmap ->
+                                            Image(
+                                                bitmap = bitmap.asImageBitmap(),
+                                                contentDescription = "Thumbnail ${clip.name}",
+                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .alpha(0.72f)
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.Black.copy(alpha = 0.18f))
+                                            )
+                                        }
+                                                keyframeState.keyframes
+                                                    .filter { it.timeMs in clip.startOffsetMs..(clip.startOffsetMs + clip.durationMs) }
+                                                    .forEach { keyframe ->
+                                                        val fraction = if (clip.durationMs > 0) {
+                                                            (keyframe.timeMs - clip.startOffsetMs).toFloat() / clip.durationMs
+                                                        } else 0f
+                                                        Text(
+                                                            text = "◆",
+                                                            color = Color.White,
+                                                            fontSize = 10.sp,
+                                                            modifier = Modifier
+                                                                .align(Alignment.TopStart)
+                                                                .offset(x = (fraction * clipWidth.value).dp - 4.dp)
+                                                        )
+                                                    }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -993,6 +1103,100 @@ fun CutScreen(
                 audioClips = audioClips + newClip
                 selectedClipId = newId
                 selectedClipMediaType = ClipMediaType.AUDIO
+            }
+        )
+    }
+
+    // ========================================================
+    // 5. DIALOG PENGATURAN SPEED KELIP (0.25x - 4x)
+    // ========================================================
+    if (showSpeedDialog) {
+        AlertDialog(
+            onDismissRequest = { showSpeedDialog = false },
+            title = { Text("Atur Kecepatan Klip", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val speeds = listOf(0.25f, 0.5f, 1.0f, 1.5f, 2.0f, 4.0f)
+                    speeds.forEach { speed ->
+                        OutlinedButton(
+                            onClick = {
+                                showSpeedDialog = false
+                                val idx = videoClips.indexOfFirst { it.id == selectedClipId }
+                                if (idx != -1) {
+                                    val target = videoClips[idx]
+                                    val baseDuration = (target.durationMs * target.speedMultiplier).toLong()
+                                    val newDur = (baseDuration / speed).toLong().coerceAtLeast(500L)
+                                    val mutable = videoClips.toMutableList()
+                                    mutable[idx] = target.copy(durationMs = newDur, speedMultiplier = speed)
+                                    var offset = 0L
+                                    videoClips = mutable.map { c -> c.copy(startOffsetMs = offset).also { offset += c.durationMs } }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("${speed}x Kecepatan")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSpeedDialog = false }) { Text("Tutup") }
+            }
+        )
+    }
+
+    // ========================================================
+    // 6. DIALOG PENGATURAN VOLUME KLIP
+    // ========================================================
+    if (showVolumeDialog) {
+        var tempVolume by remember {
+            mutableStateOf(
+                if (selectedClipMediaType == ClipMediaType.AUDIO) {
+                    audioClips.find { it.id == selectedClipId }?.volume ?: 1.0f
+                } else {
+                    videoClips.find { it.id == selectedClipId }?.volume ?: 1.0f
+                }
+            )
+        }
+        AlertDialog(
+            onDismissRequest = { showVolumeDialog = false },
+            title = { Text("Atur Volume Klip", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Level Volume: ${(tempVolume * 100).toInt()}%")
+                    Slider(
+                        value = tempVolume,
+                        onValueChange = { tempVolume = it },
+                        valueRange = 0f..2f
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showVolumeDialog = false
+                        if (selectedClipMediaType == ClipMediaType.AUDIO) {
+                            val idx = audioClips.indexOfFirst { it.id == selectedClipId }
+                            if (idx != -1) {
+                                val mutable = audioClips.toMutableList()
+                                mutable[idx] = mutable[idx].copy(volume = tempVolume)
+                                audioClips = mutable
+                            }
+                        } else {
+                            val idx = videoClips.indexOfFirst { it.id == selectedClipId }
+                            if (idx != -1) {
+                                val mutable = videoClips.toMutableList()
+                                mutable[idx] = mutable[idx].copy(volume = tempVolume)
+                                videoClips = mutable
+                            }
+                        }
+                    }
+                ) {
+                    Text("Terapkan")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVolumeDialog = false }) { Text("Batal") }
             }
         )
     }

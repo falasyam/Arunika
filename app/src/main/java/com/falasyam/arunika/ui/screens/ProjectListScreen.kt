@@ -1,7 +1,11 @@
 package com.falasyam.arunika.ui.screens
 
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -22,7 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -414,6 +420,26 @@ fun ProjectCard(
     onDelete: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var projectThumbnail by remember(project.id) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(project.id, project.videoClips) {
+        val clip = project.videoClips.firstOrNull { it.uriString != null }
+        if (clip?.uriString != null) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, Uri.parse(clip.uriString))
+                projectThumbnail = retriever.getFrameAtTime(
+                    (clip.sourceOffsetMs * 1000).coerceAtMost(1_000_000_000),
+                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                )
+            } catch (_: Exception) {
+                projectThumbnail = null
+            } finally {
+                retriever.release()
+            }
+        }
+    }
 
     Card(
         onClick = onClick,
@@ -442,12 +468,20 @@ fun ProjectCard(
                         .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayCircleOutline,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.size(28.dp)
-                    )
+                        projectThumbnail?.let { bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "Thumbnail ${project.name}",
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.PlayCircleOutline,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(28.dp)
+                        )
                 }
 
                 // Badge Rasio Aspek (Kiri Atas)

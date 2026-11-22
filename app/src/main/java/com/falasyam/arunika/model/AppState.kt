@@ -92,7 +92,8 @@ data class TimelineClip(
     val mediaType: ClipMediaType = ClipMediaType.VIDEO,
     val uriString: String? = null,
     val volume: Float = 1.0f,
-    val speedMultiplier: Float = 1.0f
+    val speedMultiplier: Float = 1.0f,
+    val sourceOffsetMs: Long = 0L
 )
 
 /**

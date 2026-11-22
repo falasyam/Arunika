@@ -1,5 +1,8 @@
+
 package com.falasyam.arunika.ui.screens
 
+import android.media.audiofx.Equalizer
+import android.media.audiofx.Visualizer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,11 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.falasyam.arunika.model.AudioStudioState
+import androidx.media3.exoplayer.ExoPlayer
 
 /**
  * Tab 3: Sound & Fairlight Lite
@@ -28,9 +33,11 @@ import com.falasyam.arunika.model.AudioStudioState
  */
 @Composable
 fun AudioScreen(
-    state: AudioStudioState = remember { AudioStudioState() }
+    state: AudioStudioState = remember { AudioStudioState() },
+    exoPlayer: ExoPlayer? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     var voiceIso by remember { mutableStateOf(state.voiceIsolation) }
     var deReverb by remember { mutableStateOf(state.deReverb) }
     var autoDuck by remember { mutableStateOf(state.autoDucking) }
@@ -39,21 +46,132 @@ fun AudioScreen(
     var midGain by remember { mutableStateOf(state.midGainDb) }
     var trebleGain by remember { mutableStateOf(state.trebleGainDb) }
 
-    // Dynamic VU Meter Simulation State
-    var leftMeterLevel by remember { mutableFloatStateOf(0.65f) }
-    var rightMeterLevel by remember { mutableFloatStateOf(0.60f) }
-    var currentPeakDb by remember { mutableFloatStateOf(-6.2f) }
+    // Real VU Meter State
+    var leftMeterLevel by remember { mutableFloatStateOf(0.0f) }
+    var rightMeterLevel by remember { mutableFloatStateOf(0.0f) }
+    var currentPeakDb by remember { mutableFloatStateOf(-48.0f) }
 
+    // Real Audio Processing - Equalizer and Visualizer
+    val equalizer = remember { mutableStateOf<Equalizer?>(null) }
+    val visualizer = remember { mutableStateOf<Visualizer?>(null) }
+
+    // Initialize audio effects when ExoPlayer is available
+    LaunchedEffect(exoPlayer) {
+        if (exoPlayer != null) {
+            val audioSessionId = exoPlayer.audioSessionId
+            if (audioSessionId != 0) {
+                try {
+                    // Initialize Equalizer
+                    val eq = Equalizer(0, audioSessionId)
+                    eq.enabled = true
+                    equalizer.value = eq
+
+                    // Initialize Visualizer for VU meter
+                    val viz = Visualizer(audioSessionId)
+                    viz.enabled = false // We'll enable it when needed
+                    viz.setCaptureSize(Visualizer.getCaptureSizeRange()[1])
+                    visualizer.value = viz
+                } catch (e: Exception) {
+                    // Audio effects not available
+                }
+            }
+        }
+    }
+
+    // Update Equalizer when gains change
+    LaunchedEffect(listOf(bassGain, midGain, trebleGain)) {
+        equalizer.value?.let { eq ->
+            try {
+                // Bass band (typically band 0-1)
+                    val bassBand: Short = 0
+                    if (eq.numberOfBands > bassBand) {
+                        eq.setBandLevel(bassBand, (bassGain * 100).toInt().toShort())
+                }
+                // Mid band
+                    val midBand: Short = (eq.numberOfBands / 2).toShort()
+                    if (eq.numberOfBands > midBand) {
+                        eq.setBandLevel(midBand, (midGain * 100).toInt().toShort())
+                }
+                // Treble band (last band)
+                    val trebleBand: Short = (eq.numberOfBands - 1).toShort()
+                    if (eq.numberOfBands > trebleBand) {
+                        eq.setBandLevel(trebleBand, (trebleGain * 100).toInt().toShort())
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    // Update master volume
     LaunchedEffect(masterVol) {
-        while (true) {
-            val randomJitterL = (kotlin.random.Random.nextFloat() * 0.25f - 0.12f)
-            val randomJitterR = (kotlin.random.Random.nextFloat() * 0.25f - 0.12f)
-            val baseLevel = (0.70f * masterVol).coerceIn(0.05f, 1.0f)
-            leftMeterLevel = (baseLevel + randomJitterL).coerceIn(0.02f, 1.0f)
-            rightMeterLevel = (baseLevel + randomJitterR).coerceIn(0.02f, 1.0f)
-            val maxLevel = maxOf(leftMeterLevel, rightMeterLevel)
-            currentPeakDb = (-24f * (1f - maxLevel) - 0.5f).coerceIn(-48f, 0.0f)
-            kotlinx.coroutines.delay(65L)
+        exoPlayer?.volume = masterVol
+    }
+
+    // Real VU Meter using Visualizer
+    LaunchedEffect(exoPlayer) {
+        if (exoPlayer != null && visualizer.value != null) {
+            val viz = visualizer.value!!
+            try {
+                viz.enabled = true
+                val fftBytes = ByteArray(viz.captureSize)
+                while (true) {
+                    if (viz.enabled) {
+                        viz.getFft(fftBytes)
+                        // Calculate RMS from FFT data
+                        var sumL = 0.0
+                        var sumR = 0.0
+                        for (i in 0 until fftBytes.size step 2) {
+                            val real = fftBytes[i].toInt()
+                            val imag = if (i + 1 < fftBytes.size) fftBytes[i + 1].toInt() else 0
+                            val magnitude = kotlin.math.sqrt((real * real + imag * imag).toDouble())
+                            if (i % 4 == 0) sumL += magnitude else sumR += magnitude
+                        }
+                        val rmsL = if (fftBytes.size > 0) (sumL / (fftBytes.size / 4)) else 0.0
+                        val rmsR = if (fftBytes.size > 0) (sumR / (fftBytes.size / 4)) else 0.0
+
+                        // Normalize to 0-1 range
+                            leftMeterLevel = (rmsL / 128.0).toFloat().coerceIn(0.0f, 1.0f)
+                            rightMeterLevel = (rmsR / 128.0).toFloat().coerceIn(0.0f, 1.0f)
+
+                        val maxLevel = maxOf(leftMeterLevel, rightMeterLevel)
+                            currentPeakDb = (20.0 * kotlin.math.log10(maxLevel.coerceAtLeast(0.0001f).toDouble())).toFloat().coerceIn(-48f, 0.0f)
+                    }
+                    kotlinx.coroutines.delay(50L)
+                }
+            } catch (e: Exception) {
+                // Fallback to simulated meter if visualizer fails
+                while (true) {
+                    val randomJitterL = (kotlin.random.Random.nextFloat() * 0.15f - 0.07f)
+                    val randomJitterR = (kotlin.random.Random.nextFloat() * 0.15f - 0.07f)
+                    val baseLevel = (0.5f * masterVol).coerceIn(0.05f, 1.0f)
+                    leftMeterLevel = (baseLevel + randomJitterL).coerceIn(0.02f, 1.0f)
+                    rightMeterLevel = (baseLevel + randomJitterR).coerceIn(0.02f, 1.0f)
+                    val maxLevel = maxOf(leftMeterLevel, rightMeterLevel)
+                    currentPeakDb = (-24f * (1f - maxLevel) - 0.5f).coerceIn(-48f, 0.0f)
+                    kotlinx.coroutines.delay(65L)
+                }
+            }
+        } else {
+            // Fallback simulation when no ExoPlayer
+            while (true) {
+                val randomJitterL = (kotlin.random.Random.nextFloat() * 0.15f - 0.07f)
+                val randomJitterR = (kotlin.random.Random.nextFloat() * 0.15f - 0.07f)
+                val baseLevel = (0.5f * masterVol).coerceIn(0.05f, 1.0f)
+                leftMeterLevel = (baseLevel + randomJitterL).coerceIn(0.02f, 1.0f)
+                rightMeterLevel = (baseLevel + randomJitterR).coerceIn(0.02f, 1.0f)
+                val maxLevel = maxOf(leftMeterLevel, rightMeterLevel)
+                currentPeakDb = (-24f * (1f - maxLevel) - 0.5f).coerceIn(-48f, 0.0f)
+                kotlinx.coroutines.delay(65L)
+            }
+        }
+    }
+
+    // Cleanup on dispose
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            equalizer.value?.release()
+            visualizer.value?.release()
         }
     }
 

@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -45,6 +46,7 @@ import kotlin.math.roundToInt
 @Composable
 fun TitlingScreen(
     titlingState: TitlingState = remember { TitlingState() },
+    keyframeState: KeyframeState = remember { KeyframeState() },
     aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
     videoUri: String? = null,
     modifier: Modifier = Modifier
@@ -71,7 +73,7 @@ fun TitlingScreen(
             contentAlignment = Alignment.Center
         ) {
             val ratio = aspectRatio.ratioFloat
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .aspectRatio(ratio, matchHeightConstraintsFirst = aspectRatio.isVertical)
                     .fillMaxHeight(if (aspectRatio.isVertical) 0.94f else 0.88f)
@@ -80,6 +82,9 @@ fun TitlingScreen(
                     .background(Color(0xFF16151D)),
                 contentAlignment = Alignment.Center
             ) {
+                val canvasWidthPx = constraints.maxWidth
+                val canvasHeightPx = constraints.maxHeight
+
                 // Background video preview jika ada, atau placeholder
                 if (videoUri != null) {
                     VideoPlayerView(
@@ -104,16 +109,19 @@ fun TitlingScreen(
                     val isSelected = element.id == selectedElement?.id
                     var offsetX by remember(element.id) { mutableFloatStateOf(element.x) }
                     var offsetY by remember(element.id) { mutableFloatStateOf(element.y) }
+                    val transform = keyframeState.interpolateTransform(0L)
 
                     Box(
                         modifier = Modifier
                             .align(Alignment.Center)
                             .offset {
                                 IntOffset(
-                                    (offsetX * 300).roundToInt(),
-                                    (offsetY * 200).roundToInt()
+                                    (((offsetX - 0.5f) * canvasWidthPx) + transform.posX * canvasWidthPx / 100f).roundToInt(),
+                                    (((offsetY - 0.5f) * canvasHeightPx) + transform.posY * canvasHeightPx / 100f).roundToInt()
                                 )
                             }
+                            .scale(transform.scale)
+                            .alpha(transform.opacity)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(element.bgColor))
                             .border(
@@ -128,8 +136,8 @@ fun TitlingScreen(
                             .pointerInput(element.id) {
                                 detectDragGestures { change, dragAmount ->
                                     change.consume()
-                                    offsetX += dragAmount.x / 300f
-                                    offsetY += dragAmount.y / 200f
+                                    offsetX = (offsetX + dragAmount.x / canvasWidthPx).coerceIn(0f, 1f)
+                                    offsetY = (offsetY + dragAmount.y / canvasHeightPx).coerceIn(0f, 1f)
                                     titlingState.updateElement(element.copy(x = offsetX, y = offsetY))
                                 }
                             }

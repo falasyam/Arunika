@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +23,48 @@ import com.falasyam.arunika.ui.screens.DeliverScreen
 import com.falasyam.arunika.ui.screens.ProjectListScreen
 import com.falasyam.arunika.ui.screens.TitlingScreen
 import com.falasyam.arunika.model.TitlingState
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.MediaItem
+import android.net.Uri
+import androidx.compose.runtime.DisposableEffect
+
+private data class GradeNodeSnapshot(
+    val id: Int,
+    val name: String,
+    val enabled: Boolean,
+    val liftX: Float,
+    val liftY: Float,
+    val liftLum: Float,
+    val gammaX: Float,
+    val gammaY: Float,
+    val gammaLum: Float,
+    val gainX: Float,
+    val gainY: Float,
+    val gainLum: Float,
+    val offsetX: Float,
+    val offsetY: Float,
+    val offsetLum: Float,
+    val temperature: Float,
+    val tint: Float,
+    val contrast: Float,
+    val saturation: Float,
+    val lut: LutPreset?,
+    val lutIntensity: Float,
+    val vignette: Float
+)
+
+private data class EditorSnapshot(
+    val audio: AudioStudioState,
+    val titling: List<TitleElement>,
+    val keyframes: List<Keyframe>,
+    val activeNodeIndex: Int,
+    val activeTarget: WheelTarget,
+    val inputLogProfile: CameraLogProfile,
+    val scopeMode: ScopeMode,
+    val splitCompareEnabled: Boolean,
+    val splitPosition: Float,
+    val nodes: List<GradeNodeSnapshot>
+)
 
 /**
  * Shell Navigasi Global Arunika:
@@ -93,19 +136,141 @@ fun ArunikaEditorShell(
     onBackToProjects: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+        val context = LocalContext.current
     var activeTab by remember { mutableStateOf(ArunikaTab.CUT) }
 
     // Shared Project States
     val colorStudioState = remember { ColorStudioState() }
     val audioState = remember { AudioStudioState() }
     val titlingState = remember { TitlingState() }
+    val keyframeState = remember { KeyframeState() }
     val deliverState = remember { DeliverExportState() }
     var isPlaying by remember { mutableStateOf(false) }
     var currentVideoUri by remember(project) { mutableStateOf<String?>(project.videoClips.firstOrNull()?.uriString) }
 
-    // Undo/Redo History (action labels untuk feedback visual)
-    val undoStack = remember { ArrayDeque<String>() }
-    val redoStack = remember { ArrayDeque<String>() }
+    // Shared ExoPlayer instance for both video playback and audio processing
+    val sharedExoPlayer = remember(currentVideoUri) {
+        ExoPlayer.Builder(context).build().apply {
+            if (currentVideoUri != null) {
+                setMediaItem(MediaItem.fromUri(Uri.parse(currentVideoUri)))
+                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ALL
+                prepare()
+            }
+        }
+    }
+
+    // Update media item when URI changes
+    LaunchedEffect(currentVideoUri) {
+        if (currentVideoUri != null) {
+            sharedExoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(currentVideoUri)))
+            sharedExoPlayer.prepare()
+        }
+    }
+
+    // Sync play/pause state
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) sharedExoPlayer.play() else sharedExoPlayer.pause()
+    }
+
+    // Release player on dispose
+    DisposableEffect(sharedExoPlayer) {
+        onDispose { sharedExoPlayer.release() }
+    }
+
+    fun captureSnapshot(): EditorSnapshot {
+        val nodeSnapshots = colorStudioState.nodes.map { node ->
+            GradeNodeSnapshot(
+                id = node.id,
+                name = node.name,
+                enabled = node.isEnabled,
+                liftX = node.lift.x,
+                liftY = node.lift.y,
+                liftLum = node.lift.luminance,
+                gammaX = node.gamma.x,
+                gammaY = node.gamma.y,
+                gammaLum = node.gamma.luminance,
+                gainX = node.gain.x,
+                gainY = node.gain.y,
+                gainLum = node.gain.luminance,
+                offsetX = node.offset.x,
+                offsetY = node.offset.y,
+                offsetLum = node.offset.luminance,
+                temperature = node.temperature,
+                tint = node.tint,
+                contrast = node.contrast,
+                saturation = node.saturation,
+                lut = node.selectedLut,
+                lutIntensity = node.lutIntensity,
+                vignette = node.vignette
+            )
+        }
+        return EditorSnapshot(
+            audio = audioState.copy(),
+            titling = titlingState.elements.toList(),
+            keyframes = keyframeState.keyframes.toList(),
+            activeNodeIndex = colorStudioState.activeNodeIndex,
+            activeTarget = colorStudioState.activeTarget,
+            inputLogProfile = colorStudioState.inputLogProfile,
+            scopeMode = colorStudioState.scopeMode,
+            splitCompareEnabled = colorStudioState.isSplitCompareEnabled,
+            splitPosition = colorStudioState.splitPosition,
+            nodes = nodeSnapshots
+        )
+    }
+
+    fun restoreSnapshot(snapshot: EditorSnapshot) {
+        audioState.masterVolume = snapshot.audio.masterVolume
+        audioState.voiceIsolation = snapshot.audio.voiceIsolation
+        audioState.deReverb = snapshot.audio.deReverb
+        audioState.autoDucking = snapshot.audio.autoDucking
+        audioState.duckingThresholdDb = snapshot.audio.duckingThresholdDb
+        audioState.bassGainDb = snapshot.audio.bassGainDb
+        audioState.midGainDb = snapshot.audio.midGainDb
+        audioState.trebleGainDb = snapshot.audio.trebleGainDb
+
+        titlingState.elements.clear()
+        titlingState.elements.addAll(snapshot.titling)
+        keyframeState.keyframes.clear()
+        keyframeState.keyframes.addAll(snapshot.keyframes)
+
+        colorStudioState.activeNodeIndex = snapshot.activeNodeIndex
+        colorStudioState.activeTarget = snapshot.activeTarget
+        colorStudioState.inputLogProfile = snapshot.inputLogProfile
+        colorStudioState.scopeMode = snapshot.scopeMode
+        colorStudioState.isSplitCompareEnabled = snapshot.splitCompareEnabled
+        colorStudioState.splitPosition = snapshot.splitPosition
+
+        snapshot.nodes.forEachIndexed { index, snap ->
+            if (index in colorStudioState.nodes.indices) {
+                val node = colorStudioState.nodes[index]
+                node.name = snap.name
+                node.isEnabled = snap.enabled
+                node.lift.x = snap.liftX
+                node.lift.y = snap.liftY
+                node.lift.luminance = snap.liftLum
+                node.gamma.x = snap.gammaX
+                node.gamma.y = snap.gammaY
+                node.gamma.luminance = snap.gammaLum
+                node.gain.x = snap.gainX
+                node.gain.y = snap.gainY
+                node.gain.luminance = snap.gainLum
+                node.offset.x = snap.offsetX
+                node.offset.y = snap.offsetY
+                node.offset.luminance = snap.offsetLum
+                node.temperature = snap.temperature
+                node.tint = snap.tint
+                node.contrast = snap.contrast
+                node.saturation = snap.saturation
+                node.selectedLut = snap.lut
+                node.lutIntensity = snap.lutIntensity
+                node.vignette = snap.vignette
+            }
+        }
+    }
+
+    // Undo/Redo History menyimpan snapshot nyata state editor.
+    val undoStack = remember { ArrayDeque<EditorSnapshot>() }
+    val redoStack = remember { ArrayDeque<EditorSnapshot>() }
     var lastActionLabel by remember { mutableStateOf<String?>(null) }
     var showUndoToast by remember { mutableStateOf(false) }
 
@@ -170,9 +335,10 @@ fun ArunikaEditorShell(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 if (undoStack.isNotEmpty()) {
-                                    val action = undoStack.removeLast()
-                                    redoStack.addLast(action)
-                                    lastActionLabel = "Undo: $action"
+                                    val snapshot = undoStack.removeLast()
+                                    redoStack.addLast(captureSnapshot())
+                                    restoreSnapshot(snapshot)
+                                    lastActionLabel = "Undo: state editor"
                                     showUndoToast = true
                                 }
                             },
@@ -184,9 +350,10 @@ fun ArunikaEditorShell(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 if (redoStack.isNotEmpty()) {
-                                    val action = redoStack.removeLast()
-                                    undoStack.addLast(action)
-                                    lastActionLabel = "Redo: $action"
+                                    val snapshot = redoStack.removeLast()
+                                    undoStack.addLast(captureSnapshot())
+                                    restoreSnapshot(snapshot)
+                                    lastActionLabel = "Redo: state editor"
                                     showUndoToast = true
                                 }
                             },
@@ -229,6 +396,8 @@ fun ArunikaEditorShell(
                                 onClick = {
                                     if (activeTab != tab) {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        undoStack.addLast(captureSnapshot())
+                                        redoStack.clear()
                                         activeTab = tab
                                     }
                                 },
@@ -268,6 +437,8 @@ fun ArunikaEditorShell(
                                 onClick = {
                                     if (activeTab != tab) {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        undoStack.addLast(captureSnapshot())
+                                        redoStack.clear()
                                         activeTab = tab
                                     }
                                 },
@@ -309,10 +480,12 @@ fun ArunikaEditorShell(
                                 aspectRatio = project.aspectRatio,
                                 colorStudioState = colorStudioState,
                                 titlingState = titlingState,
+                                keyframeState = keyframeState,
                                 currentVideoUri = currentVideoUri,
                                 onVideoUriChanged = { currentVideoUri = it },
                                 isPlaying = isPlaying,
-                                onTogglePlay = { isPlaying = !isPlaying }
+                                                            onTogglePlay = { isPlaying = !isPlaying },
+                                                            sharedExoPlayer = sharedExoPlayer
                             )
                             ArunikaTab.COLOR -> ColorStudioScreen(
                                 state = colorStudioState,
@@ -322,11 +495,13 @@ fun ArunikaEditorShell(
                                 onTogglePlay = { isPlaying = !isPlaying },
                                 onNavigateTab = { tabName ->
                                     activeTab = ArunikaTab.valueOf(tabName)
-                                }
+                                                            },
+                                                            sharedExoPlayer = sharedExoPlayer
                             )
-                            ArunikaTab.AUDIO -> AudioScreen(state = audioState)
+                            ArunikaTab.AUDIO -> AudioScreen(state = audioState, exoPlayer = sharedExoPlayer)
                             ArunikaTab.TITLING -> TitlingScreen(
                                 titlingState = titlingState,
+                                keyframeState = keyframeState,
                                 aspectRatio = project.aspectRatio,
                                 videoUri = currentVideoUri
                             )
