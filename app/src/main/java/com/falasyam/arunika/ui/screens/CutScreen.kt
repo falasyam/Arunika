@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +28,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -202,31 +200,41 @@ fun CutScreen(
 
     // Posisi waktu Playhead saat ini dalam milidetik
     var currentPlayheadMs by remember { mutableStateOf(currentTimeMs) }
-    val totalTimelineDurationMs = remember(videoClips) { videoClips.sumOf { it.durationMs }.coerceAtLeast(1000L) }
+    val totalTimelineDurationMs = remember(videoClips, audioClips) {
+        maxOf(
+            videoClips.maxOfOrNull { it.startOffsetMs + it.durationMs } ?: 0L,
+            audioClips.maxOfOrNull { it.startOffsetMs + it.durationMs } ?: 0L,
+            1000L
+        )
+    }
     val density = LocalDensity.current
 
     // Playback loop ticker: menggerakkan playhead dan detik timecode secara real-time saat diputar
-    LaunchedEffect(isPlaying) {
+    LaunchedEffect(isPlaying, totalTimelineDurationMs) {
         if (isPlaying) {
             val startClock = System.currentTimeMillis() - currentPlayheadMs
             while (isPlaying) {
-                val total = videoClips.sumOf { it.durationMs }.coerceAtLeast(1000L)
                 val elapsed = System.currentTimeMillis() - startClock
-                currentPlayheadMs = (elapsed % total)
+                currentPlayheadMs = elapsed % totalTimelineDurationMs
                 kotlinx.coroutines.delay(33L)
             }
         }
     }
 
-    // Auto-scroll timeline mengikuti posisi playhead
+    // Keep the playhead fixed while the timeline content scrolls beneath it.
     LaunchedEffect(currentPlayheadMs, isPlaying) {
-        if (isPlaying) {
-            val playheadPx = with(density) { (60.dp + (currentPlayheadMs / 30f).dp).toPx() }
-            val viewportWidth = if (timelineScroll.viewportSize > 0) timelineScroll.viewportSize else with(density) { 360.dp.toPx().toInt() }
-            val scrollTarget = (playheadPx - viewportWidth / 2).toInt().coerceAtLeast(0)
-            if (kotlin.math.abs(timelineScroll.value - scrollTarget) > 15) {
-                timelineScroll.scrollTo(scrollTarget)
+        val scrollTarget = with(density) { (currentPlayheadMs / 30f).dp.roundToPx() }
+        if (kotlin.math.abs(timelineScroll.value - scrollTarget) > 1) {
+            timelineScroll.scrollTo(scrollTarget.coerceAtLeast(0))
+        }
+    }
+
+    LaunchedEffect(timelineScroll, totalTimelineDurationMs) {
+        snapshotFlow { timelineScroll.value }.collect { scrollPx ->
+            val timelineTimeMs = with(density) {
+                (scrollPx / density.density * 30f).toLong()
             }
+            currentPlayheadMs = timelineTimeMs.coerceIn(0L, totalTimelineDurationMs)
         }
     }
 
@@ -239,6 +247,13 @@ fun CutScreen(
                 currentPlayheadMs >= clip.startOffsetMs && currentPlayheadMs < (clip.startOffsetMs + clip.durationMs)
             } ?: videoClips.find { it.id == selectedClipId } ?: videoClips.firstOrNull()
         }
+    }
+    val previewVideoClip = videoClips.find {
+        currentPlayheadMs >= it.startOffsetMs && currentPlayheadMs < it.startOffsetMs + it.durationMs
+    }
+
+    LaunchedEffect(previewVideoClip?.id) {
+        onVideoUriChanged(previewVideoClip?.uriString)
     }
 
     Column(
@@ -276,12 +291,12 @@ fun CutScreen(
                 VideoPlayerView(
                     uri = currentVideoUri,
                     isPlaying = isPlaying,
-                    seekToMs = if (activeClip != null) {
-                        activeClip.sourceOffsetMs +
-                            (((currentPlayheadMs - activeClip.startOffsetMs).coerceAtLeast(0L) * activeClip.speedMultiplier).toLong())
+                    seekToMs = if (previewVideoClip != null) {
+                        previewVideoClip.sourceOffsetMs +
+                            (((currentPlayheadMs - previewVideoClip.startOffsetMs).coerceAtLeast(0L) * previewVideoClip.speedMultiplier).toLong())
                     } else 0L,
-                    volume = activeClip?.volume ?: 1.0f,
-                    speedMultiplier = activeClip?.speedMultiplier ?: 1.0f,
+                    volume = previewVideoClip?.volume ?: 1.0f,
+                    speedMultiplier = previewVideoClip?.speedMultiplier ?: 1.0f,
                     colorState = colorStudioState,
                     modifier = Modifier.fillMaxSize(),
                     sharedExoPlayer = sharedExoPlayer
@@ -745,27 +760,12 @@ fun CutScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .horizontalScroll(timelineScroll)
                             .padding(vertical = 4.dp)
-                            .pointerInput(totalTimelineDurationMs) {
-                                detectDragGestures(
-                                    onDragStart = { position ->
-                                        val dpPerMs = with(density) { 1.dp.toPx() / 30f }
-                                        val timelinePx = position.x + timelineScroll.value - with(density) { 60.dp.toPx() }
-                                        currentPlayheadMs = (timelinePx / dpPerMs).toLong()
-                                            .coerceIn(0L, totalTimelineDurationMs)
-                                    },
-                                    onDrag = { change, _ ->
-                                        change.consume()
-                                        val dpPerMs = with(density) { 1.dp.toPx() / 30f }
-                                        val timelinePx = change.position.x + timelineScroll.value - with(density) { 60.dp.toPx() }
-                                        currentPlayheadMs = (timelinePx / dpPerMs).toLong()
-                                            .coerceIn(0L, totalTimelineDurationMs)
-                                    }
-                                )
-                            }
                     ) {
                         Column(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .horizontalScroll(timelineScroll),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                         Spacer(modifier = Modifier.width(60.dp))
@@ -1041,11 +1041,11 @@ fun CutScreen(
                         }
                     }
 
-                    // Playhead (Garis Merah Penunjuk Posisi yang Berjalan Melintasi Track)
-                    val playheadXDp = 60.dp + (currentPlayheadMs / 30f).dp
+                    // Fixed playhead; horizontal scrolling moves the tracks underneath.
                     Box(
                         modifier = Modifier
-                            .offset(x = playheadXDp)
+                            .align(Alignment.TopStart)
+                            .offset(x = 60.dp)
                             .fillMaxHeight()
                             .width(2.dp)
                             .background(MaterialTheme.colorScheme.error)

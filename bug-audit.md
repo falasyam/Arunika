@@ -93,7 +93,7 @@
 ### 11. Seek Bar / Scrubbing di Timeline Belum Ada
 **Lokasi:** `CutScreen.kt`
 **Status:** ✅ **SELESAI**
-- Drag pada area timeline memindahkan playhead secara manual dan membatasi posisi ke durasi timeline.
+- Drag pada area timeline menggeser track di bawah playhead yang tetap; posisi waktu playhead mengikuti scroll dan durasi terpanjang track video/audio.
 
 ### 12. Thumbnail Klip di Timeline Kosong
 **Lokasi:** `CutScreen.kt`
