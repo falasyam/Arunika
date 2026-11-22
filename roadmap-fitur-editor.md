@@ -25,7 +25,9 @@ Rincian status implementasi ada di [bug-audit.md](./bug-audit.md). Audit mencata
 
 Prioritas yang masih terbuka:
 
+- Timeline saat ini berpusat pada satu track video/foto V1 dan satu track audio A1; V2 dipakai untuk title, belum menjadi track overlay video umum.
 - Preview audio A1 belum diputar dan disinkronkan pada timeline.
+- Klip video/foto yang bertumpuk dan beberapa track audio yang diputar bersamaan belum menjadi workflow multitrack penuh.
 - Voice Isolation, De-Reverb, dan Auto-Ducking belum menjadi pemrosesan audio nyata.
 - Kontrol untuk mengedit seluruh properti keyframe belum lengkap.
 - Log perangkat baru saja mencatat beberapa crash `OutOfMemoryError`; perbaikan memori dan autosave menunggu validasi ulang pada perangkat.
@@ -49,7 +51,7 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
   - Tampilkan indikator ketika URI sumber tidak lagi dapat dibaca.
   - Berikan tindakan untuk mencari ulang file tanpa menghapus edit timeline.
 - **Export nyata sebagai release gate**
-  - Uji klip video/foto, trim/split, title, keyframe, A1, mute, gain, dan master volume dalam satu render.
+  - Uji V1 dengan klip overlay V2, title/keyframe, serta A1 dan A2 yang bertumpuk, termasuk trim/split, mute, gain, dan master volume dalam satu render.
   - Tampilkan progress, estimasi ukuran, ruang penyimpanan, pembatalan, dan pesan kegagalan dengan tindakan lanjut.
 
 **Kriteria selesai:** proyek tersimpan dan dapat dibuka kembali; tidak ada kehilangan edit; pengujian perangkat tidak menghasilkan OOM; hasil export cocok dengan preview dan parameter yang dipilih.
@@ -60,6 +62,17 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
   - Tambahkan trim handles untuk awal/akhir klip, drag untuk menyusun ulang, dan snap ke playhead/tepi klip/marker.
   - Sediakan zoom, fit-to-project, marker, serta navigasi cepat ke awal/akhir.
   - Bedakan dengan jelas select, move, trim, dan scrub agar gestur tidak saling bertabrakan.
+- **Overlay klip video/foto**
+  - Jadikan model timeline track-aware: track memiliki ID, tipe, urutan layer, dan state; klip menyimpan posisi timeline serta rentang sumbernya.
+  - Tambahkan track overlay V2 dan seterusnya agar B-roll, cutaway, reaction, logo, dan gambar dapat berjalan bersamaan di atas V1.
+  - Pertahankan urutan layer; sediakan visibilitas, lock, duplicate, pindah track, serta trim klip secara nondestruktif.
+  - Izinkan penyesuaian posisi, skala, rotasi, crop/fit, dan opacity pada klip overlay; dukung keyframe pada properti yang relevan.
+  - Preview dan export harus mengomposisikan layer dengan urutan dan timing yang sama, termasuk saat klip bertumpuk.
+- **Overlay audio dan multitrack**
+  - Tambahkan track audio A2 dan seterusnya untuk musik, voiceover, ambience, serta sound effect yang dapat bertumpuk pada waktu yang sama.
+  - Setiap klip audio memiliki source in/out, timeline offset, trim, gain, mute, dan fade in/out; sediakan mute/solo per track.
+  - Campur semua track pada preview dan export dengan sinkronisasi terhadap playhead; lindungi output dari clipping dan tampilkan waveform aktual.
+  - Jadikan jumlah track dapat diperluas sesuai kemampuan perangkat, dengan batas resource yang jelas dan feedback bila batas tercapai.
 - **Audio A1 pada preview**
   - Putar dan seek audio mengikuti playhead, termasuk offset, split, speed, mute, dan gain.
   - Sediakan kontrol volume per klip dan master dengan indikator mute yang jelas.
@@ -71,7 +84,7 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
   - Kelompokkan satu gestur menjadi satu aksi riwayat.
   - Pastikan undo/redo memulihkan timeline, audio, title, keyframe, dan grading tanpa membuat entri palsu saat pindah tab.
 
-**Kriteria selesai:** aksi edit umum dapat dilakukan tanpa dialog panjang; scrubbing tetap akurat saat zoom berubah; playback audio tidak drift secara nyata selama sesi edit panjang.
+**Kriteria selesai:** aksi edit umum dapat dilakukan tanpa dialog panjang; scrubbing tetap akurat saat zoom berubah; playback audio tidak drift secara nyata selama sesi edit panjang; klip overlay tampil di atas V1 dan beberapa klip audio dapat diputar bersamaan.
 
 ### P2 — Mode Studio: Color, Title, dan Audio
 
@@ -87,7 +100,7 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
   - Sediakan template yang dapat diedit, area aman untuk format sosial, dan kontrol durasi di timeline.
   - Beri editor caption untuk koreksi teks dan timing; dukung ekspor subtitle bila format render memungkinkan.
 - **Audio Studio**
-  - Tambahkan gain automation dan ducking berbasis level dialog, dengan opsi manual override.
+  - Tambahkan mixer per-track, pan, gain automation, dan ducking berbasis level dialog dengan opsi manual override.
   - Implementasikan De-Reverb dan Voice Isolation sebagai DSP/model nyata, dengan status pemrosesan dan batasan perangkat.
   - Jangan mengganti meter aktual dengan angka simulasi tanpa label yang terlihat.
 
@@ -116,6 +129,8 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
 
 - Gunakan layout adaptif berdasarkan lebar window, bukan sekadar orientasi portrait/landscape.
 - Saat ruang cukup, tampilkan Media Bin di kiri, preview di tengah, Inspector di kanan, dan timeline di bawah.
+- Tampilkan V1 dan track overlay sebagai lane terpisah dengan kontrol layer; tampilkan A1, A2, dan track audio tambahan dengan kontrol mute/solo yang mudah dibedakan.
+- Pada ponsel, gunakan tombol eksplisit seperti **Tambah sebagai overlay** atau **Tambah ke track audio** selain drag agar fungsi multitrack tetap dapat ditemukan dan diakses.
 - Di Color Studio, gunakan ruang tambahan untuk node graph dan scopes berdampingan.
 - Pertahankan pilihan klip, posisi playhead, scroll, dan panel aktif saat resize atau berpindah orientasi.
 
@@ -130,11 +145,11 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
 ## Urutan Implementasi yang Disarankan
 
 1. Validasi perbaikan OOM/autosave dan export title/audio pada perangkat nyata.
-2. Selesaikan preview A1 dan reliabilitas media offline.
-3. Tambahkan trim handles, reorder, snap, zoom timeline, dan waveform aktual.
-4. Lengkapi kontrol keyframe serta konsistensi preview/export.
-5. Implementasikan pemrosesan audio nyata; baru setelah itu tambahkan workflow AI audio.
-6. Perluas proxy, preset sosial, dan antrian export setelah fondasi stabil.
+2. Refactor model timeline menjadi track-aware untuk V1, overlay video/foto, dan beberapa lane audio.
+3. Implementasikan compositing klip overlay yang konsisten pada preview dan export.
+4. Selesaikan preview audio tersinkron dan mixing beberapa track; lanjutkan dengan trim handles, reorder, snap, zoom, serta waveform aktual.
+5. Lengkapi kontrol keyframe, mixer lanjutan, dan pemrosesan audio nyata.
+6. Perluas proxy, preset sosial, dan antrian export setelah fondasi multitrack stabil.
 
 ## Batasan dan Keputusan Produk
 
