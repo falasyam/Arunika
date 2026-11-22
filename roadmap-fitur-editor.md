@@ -98,8 +98,8 @@ Selesaikan sebelum menambah efek atau fitur AI baru.
   - Pertahankan ruang warna input/output dan LUT yang sama di preview dan export.
 - **Titling dan captions**
   - Izinkan membuat teks kosong tanpa template; template tetap menjadi opsi cepat.
-  - Sediakan pilihan font bawaan (sans, serif, monospace, dan cursive), serta pastikan opacity dan posisi tetap konsisten saat teks diedit atau digeser.
-  - Tampilkan title pada lane V2 di timeline utama; pengguna dapat menambahkan teks pada playhead, memindahkan awalnya, dan mengatur durasi dengan trim handle.
+  - Sediakan pilihan font bawaan (sans, serif, monospace, dan cursive) serta impor font `.ttf`/`.otf` dari file picker; pastikan opacity dan posisi tetap konsisten saat teks diedit atau digeser.
+  - Tampilkan title pada track teks mandiri di timeline utama; pengguna dapat menambahkan teks pada playhead, memindahkan awalnya, dan mengatur durasi dengan trim handle.
   - Pastikan panel teks menyesuaikan ruang saat keyboard terbuka dan preview/export mengikuti rentang waktu title.
   - Beri editor caption untuk koreksi teks dan timing; dukung ekspor subtitle bila format render memungkinkan.
 - **Audio Studio**

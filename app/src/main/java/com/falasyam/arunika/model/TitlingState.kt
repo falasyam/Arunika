@@ -38,7 +38,8 @@ enum class TitleFont(val displayName: String, val cssFamily: String) {
     SERIF("Serif", "Georgia, 'Times New Roman', serif"),
     MONO("Mono", "'JetBrains Mono', monospace"),
     CINEMATIC("Cinematic", "'Playfair Display', Georgia, serif"),
-    HANDWRITTEN("Handwritten", "'Dancing Script', cursive")
+    HANDWRITTEN("Handwritten", "'Dancing Script', cursive"),
+    CUSTOM("Custom", "custom")
 }
 
 /**

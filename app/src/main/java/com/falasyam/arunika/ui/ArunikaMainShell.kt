@@ -598,6 +598,10 @@ fun ArunikaEditorShell(
                                 aspectRatio = project.aspectRatio,
                                 colorStudioState = colorStudioState,
                                 titlingState = titlingState,
+                                onEditTitle = { titleId ->
+                                    titlingState.selectedElementId = titleId
+                                    activeTab = ArunikaTab.TITLING
+                                },
                                 keyframeState = keyframeState,
                                 currentVideoUri = currentVideoUri,
                                 onVideoUriChanged = { currentVideoUri = it },

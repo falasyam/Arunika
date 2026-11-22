@@ -61,6 +61,8 @@ import com.falasyam.arunika.model.TitleElement
 import com.falasyam.arunika.model.TitleFont
 import com.falasyam.arunika.model.TimelineClip
 import com.falasyam.arunika.model.interpolateKeyframes
+import com.falasyam.arunika.ui.customTitleFontFile
+import com.falasyam.arunika.ui.titleFontDirectory
 import com.falasyam.arunika.ui.components.buildArunikaColorEffects
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -432,6 +434,7 @@ fun DeliverScreen(
                         )
                         check(assetsDirectory.mkdirs()) { "Could not create temporary export assets." }
                         activeExportAssetsDirectory = assetsDirectory
+                        val customFontDirectory = titleFontDirectory(context)
 
                         isExporting = true
                         progress = 0.01f
@@ -454,7 +457,8 @@ fun DeliverScreen(
                                         titleElements,
                                         keyframes,
                                         fps,
-                                        timelineCursorMs
+                                        timelineCursorMs,
+                                        customFontDirectory
                                     )
                                 )
                             }
@@ -467,7 +471,8 @@ fun DeliverScreen(
                                         titleElements,
                                         keyframes,
                                         fps,
-                                        clip.startOffsetMs
+                                        clip.startOffsetMs,
+                                        customFontDirectory
                                     )
                                 )
                             } else {
@@ -480,7 +485,8 @@ fun DeliverScreen(
                                         colorStudioState = colorStudioState,
                                         titleElements = titleElements,
                                         keyframes = keyframes,
-                                        frameRate = fps
+                                        frameRate = fps,
+                                        customFontDirectory = customFontDirectory
                                     )
                                 )
                             }
@@ -512,7 +518,8 @@ fun DeliverScreen(
                                         colorStudioState = null,
                                         titleElements = emptyList(),
                                         keyframes = emptyList(),
-                                        frameRate = fps
+                                        frameRate = fps,
+                                        customFontDirectory = customFontDirectory
                                     )
                                 )
                                 compositionSequences.add(EditedMediaItemSequence(audioSequenceItems))
@@ -636,7 +643,8 @@ private fun buildEditedClip(
     colorStudioState: ColorStudioState?,
     titleElements: List<TitleElement>,
     keyframes: List<Keyframe>,
-    frameRate: Int
+    frameRate: Int,
+    customFontDirectory: File
 ): EditedMediaItem {
             val uri = Uri.parse(requireNotNull(clip.uriString))
             val mediaItemBuilder = MediaItem.Builder().setUri(uri)
@@ -680,7 +688,8 @@ private fun buildEditedClip(
                         titleElements,
                         keyframes,
                         frameRate,
-                        clip.startOffsetMs
+                        clip.startOffsetMs,
+                        customFontDirectory
                     )
                 )
             }
@@ -729,7 +738,8 @@ private fun buildBlackFrameItem(
     titleElements: List<TitleElement>,
     keyframes: List<Keyframe>,
     frameRate: Int,
-    timelineStartMs: Long
+    timelineStartMs: Long,
+    customFontDirectory: File
 ): EditedMediaItem {
     val frameFile = File(assetsDirectory, "black-frame.png")
     if (!frameFile.exists()) {
@@ -757,7 +767,8 @@ private fun buildBlackFrameItem(
                         titleElements,
                         keyframes,
                         frameRate,
-                        timelineStartMs
+                        timelineStartMs,
+                        customFontDirectory
                     )
                 )
             )
@@ -770,14 +781,16 @@ private fun createTitleOverlayEffect(
     titleElements: List<TitleElement>,
     keyframes: List<Keyframe>,
     frameRate: Int,
-    timelineStartMs: Long
+    timelineStartMs: Long,
+    customFontDirectory: File
 ): OverlayEffect {
     val overlays = titleElements.map { element ->
         TimelineTextOverlay(
             element = element,
             keyframes = keyframes,
             frameRate = frameRate,
-            timelineStartMs = timelineStartMs
+            timelineStartMs = timelineStartMs,
+            customFontDirectory = customFontDirectory
         )
     }
     return OverlayEffect(ImmutableList.copyOf<TextureOverlay>(overlays))
@@ -787,10 +800,31 @@ private class TimelineTextOverlay(
     private val element: TitleElement,
     private val keyframes: List<Keyframe>,
     private val frameRate: Int,
-    private val timelineStartMs: Long
+    private val timelineStartMs: Long,
+    customFontDirectory: File
 ) : BitmapOverlay() {
     private var videoSize: Size? = null
     private var overlayBitmap: Bitmap? = null
+    private val titleTypeface = when (element.font) {
+        TitleFont.SANS -> Typeface.create("sans-serif", Typeface.BOLD)
+        TitleFont.SERIF, TitleFont.CINEMATIC -> Typeface.create("serif", Typeface.BOLD)
+        TitleFont.MONO -> Typeface.create("monospace", Typeface.BOLD)
+        TitleFont.HANDWRITTEN -> Typeface.create("cursive", Typeface.BOLD)
+        TitleFont.CUSTOM -> {
+            val fontFile = customTitleFontFile(customFontDirectory, element.id)
+            check(fontFile.isFile) {
+                "Custom font file for '${element.text}' is missing. Reimport the font before exporting."
+            }
+            try {
+                Typeface.createFromFile(fontFile)
+            } catch (exception: RuntimeException) {
+                throw IllegalStateException(
+                    "Custom font file for '${element.text}' could not be loaded.",
+                    exception
+                )
+            }
+        }
+    }
 
     override fun configure(videoSize: Size) {
         super.configure(videoSize)
@@ -855,15 +889,7 @@ private class TimelineTextOverlay(
             alpha = (Color.alpha(color) * opacity).roundToInt().coerceIn(0, 255)
             this.textSize = textSize
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(
-                when (element.font) {
-                    TitleFont.SANS -> "sans-serif"
-                    TitleFont.SERIF, TitleFont.CINEMATIC -> "serif"
-                    TitleFont.MONO -> "monospace"
-                    TitleFont.HANDWRITTEN -> "cursive"
-                },
-                Typeface.BOLD
-            )
+            typeface = titleTypeface
         }
         val metrics = textPaint.fontMetrics
         val baseline = -(metrics.ascent + metrics.descent) / 2f

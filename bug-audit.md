@@ -164,7 +164,8 @@
 - Opacity elemen teks diterapkan pada preview Titling dan Cut; drag memakai state elemen terbaru agar perubahan teks/gaya tidak tertimpa posisi lama.
 - Keyboard mendapat ruang melalui inset IME; editor teks tetap dapat digulir pada tinggi layar yang tersisa.
 - Teks dapat dibuat tanpa template dan memilih font bawaan Sans, Serif, Mono, Cinematic, atau Handwritten.
-- Lane title V2 di timeline utama dapat menambah teks pada playhead, memindahkan klip teks, serta mengatur durasi lewat handle kanan. Preview Cut dan export mengikuti rentang waktu title.
+- Track teks T1 terpisah di timeline utama; pengguna dapat menambah teks pada playhead, memindahkan klip teks, serta mengatur durasi lewat handle kanan.
+- Font `.ttf` dan `.otf` dapat dipilih melalui file picker, disalin ke penyimpanan privat aplikasi, dan digunakan pada preview serta export.
 - Belum divalidasi secara interaktif pada perangkat setelah perubahan ini.
 
 ---

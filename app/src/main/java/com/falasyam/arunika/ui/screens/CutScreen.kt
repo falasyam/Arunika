@@ -45,6 +45,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.falasyam.arunika.model.*
+import com.falasyam.arunika.ui.resolveTitleFontFamily
 import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.VideoPlayerView
 import androidx.media3.exoplayer.ExoPlayer
@@ -84,6 +85,7 @@ fun CutScreen(
     aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
     colorStudioState: ColorStudioState? = null,
     titlingState: TitlingState? = null,
+    onEditTitle: (String) -> Unit = {},
     currentVideoUri: String? = null,
     onVideoUriChanged: (String?) -> Unit = {},
     currentTimeMs: Long = 0L,
@@ -397,6 +399,9 @@ fun CutScreen(
                     currentPlayheadMs >= it.startTimeMs() &&
                         currentPlayheadMs < it.startTimeMs() + it.durationMs()
                 }.forEach { element ->
+                    val titleFontFamily = remember(element.id, element.font) {
+                        resolveTitleFontFamily(context, element)
+                    }
                     val transform = keyframeState.interpolateTransform(currentPlayheadMs)
                     Box(
                         modifier = Modifier
@@ -430,13 +435,7 @@ fun CutScreen(
                                 fontSize = (element.fontSize * 0.85f).sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(element.textColor),
-                                fontFamily = when (element.font) {
-                                    TitleFont.SERIF -> FontFamily.Serif
-                                    TitleFont.MONO -> FontFamily.Monospace
-                                    TitleFont.CINEMATIC -> FontFamily.Serif
-                                    TitleFont.HANDWRITTEN -> FontFamily.Cursive
-                                    else -> FontFamily.Default
-                                }
+                                fontFamily = titleFontFamily
                             )
                         }
                     }
@@ -794,10 +793,10 @@ fun CutScreen(
                                         color = MaterialTheme.colorScheme.outline
                                     )
                                     Text(
-                                        text = "V2",
+                                        text = "T1",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
-                                        color = Color(0xFFB05CF5)
+                                        color = MaterialTheme.colorScheme.tertiary
                                     )
                                 }
                             }
@@ -839,7 +838,10 @@ fun CutScreen(
                             FilledTonalButton(
                                 onClick = {
                                     titlingState?.addPlainText(timelineMsToTitleFrame(currentPlayheadMs))
-                                        ?.let { title -> titlingState.selectedElementId = title.id }
+                                        ?.let { title ->
+                                            titlingState.selectedElementId = title.id
+                                            onEditTitle(title.id)
+                                        }
                                 },
                                 enabled = titlingState != null,
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
@@ -1158,7 +1160,7 @@ fun CutScreen(
                     }
 
                         // ============================================
-                        // TRACK V2 (TITLE & TEXT OVERLAYS)
+                        // TRACK T1 (TITLE & TEXT OVERLAYS)
                         // ============================================
                         Row(
                             modifier = Modifier
@@ -1166,10 +1168,26 @@ fun CutScreen(
                                 .height(52.dp)
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .padding(start = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "T1",
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+
                                 if (titleElements.isEmpty()) {
                                     Surface(
                                         onClick = {
                                             titlingState?.addPlainText(timelineMsToTitleFrame(currentPlayheadMs))
+                                                ?.let { title -> onEditTitle(title.id) }
                                         },
                                         enabled = titlingState != null,
                                         shape = RoundedCornerShape(8.dp),
@@ -1228,6 +1246,7 @@ fun CutScreen(
                                             .clickable {
                                                 titlingState?.selectedElementId = title.id
                                                 currentPlayheadMs = startMs
+                                                onEditTitle(title.id)
                                             }
                                             .pointerInput(title.id, density.density) {
                                                 var initialStartFrame = title.startFrame.toFloat()
