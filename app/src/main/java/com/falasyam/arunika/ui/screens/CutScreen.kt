@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -39,6 +40,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.falasyam.arunika.model.*
 import com.falasyam.arunika.ui.components.ColorGradingOverlay
 import com.falasyam.arunika.ui.components.VideoPlayerView
@@ -86,20 +89,38 @@ fun CutScreen(
     val clipThumbnails = remember { mutableStateMapOf<String, Bitmap>() }
 
     LaunchedEffect(videoClips) {
-        videoClips.filter { it.uriString != null && it.mediaType == ClipMediaType.VIDEO }
-            .forEach { clip ->
+            val videoClipsWithUris = videoClips.filter {
+                it.uriString != null && it.mediaType == ClipMediaType.VIDEO
+            }
+            val currentThumbnailIds = videoClipsWithUris.mapTo(mutableSetOf()) { it.id }
+            clipThumbnails.keys.filterNot { it in currentThumbnailIds }.forEach { clipId ->
+                clipThumbnails.remove(clipId)?.recycle()
+            }
+
+            videoClipsWithUris.forEach { clip ->
                 if (clipThumbnails.containsKey(clip.id)) return@forEach
+                val thumbnail = withContext(Dispatchers.IO) {
                 val retriever = MediaMetadataRetriever()
                 try {
                     retriever.setDataSource(context, Uri.parse(clip.uriString))
-                    retriever.getFrameAtTime(
-                        (clip.sourceOffsetMs * 1000).coerceAtMost(1_000_000_000),
-                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-                    )?.let { clipThumbnails[clip.id] = it }
-                } catch (_: Exception) {
+                        retriever.extractThumbnailFrame(
+                            (clip.sourceOffsetMs * 1000).coerceAtMost(1_000_000_000)
+                        )
+                    } catch (exception: Exception) {
+                        Log.w("CutScreen", "Could not create thumbnail for ${clip.name}", exception)
+                        null
                 } finally {
                     retriever.release()
                 }
+            }
+                thumbnail?.let { clipThumbnails[clip.id] = it }
+            }
+    }
+
+    DisposableEffect(clipThumbnails) {
+            onDispose {
+                clipThumbnails.values.toList().forEach(Bitmap::recycle)
+                clipThumbnails.clear()
             }
     }
 

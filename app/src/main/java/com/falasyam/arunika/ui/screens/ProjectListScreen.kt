@@ -3,6 +3,7 @@ package com.falasyam.arunika.ui.screens
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
@@ -39,6 +40,8 @@ import com.falasyam.arunika.model.AspectRatioMode
 import com.falasyam.arunika.model.ClipMediaType
 import com.falasyam.arunika.model.ProjectItem
 import com.falasyam.arunika.model.TimelineClip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Halaman Depan / Project Manager Arunika:
@@ -424,21 +427,29 @@ fun ProjectCard(
     var projectThumbnail by remember(project.id) { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(project.id, project.videoClips) {
+        projectThumbnail = null
         val clip = project.videoClips.firstOrNull { it.uriString != null }
         if (clip?.uriString != null) {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(context, Uri.parse(clip.uriString))
-                projectThumbnail = retriever.getFrameAtTime(
-                    (clip.sourceOffsetMs * 1000).coerceAtMost(1_000_000_000),
-                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-                )
-            } catch (_: Exception) {
-                projectThumbnail = null
-            } finally {
-                retriever.release()
+            projectThumbnail = withContext(Dispatchers.IO) {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(context, Uri.parse(clip.uriString))
+                    retriever.extractThumbnailFrame(
+                        (clip.sourceOffsetMs * 1000).coerceAtMost(1_000_000_000)
+                    )
+                } catch (exception: Exception) {
+                    Log.w("ProjectListScreen", "Could not create thumbnail for ${project.name}", exception)
+                    null
+                } finally {
+                    retriever.release()
+                }
             }
         }
+    }
+
+    DisposableEffect(projectThumbnail) {
+        val thumbnail = projectThumbnail
+        onDispose { thumbnail?.recycle() }
     }
 
     Card(

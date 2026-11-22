@@ -128,6 +128,14 @@
 - File render dipublikasikan ke `Movies/Arunika` agar terlihat di penyimpanan media perangkat.
 - Android 10+ menggunakan MediaStore; Android versi lama menggunakan folder publik dan meminta izin penyimpanan bila diperlukan.
 
+### 17. App Force-Close karena OutOfMemoryError
+**Lokasi:** `CutScreen.kt`, `ProjectListScreen.kt`, `EditorAutosave.kt`
+**Status:** 🟡 **PERBAIKAN DI WORKTREE, VALIDASI PERANGKAT PENDING**
+- Log Pixel 6a mencatat tiga crash `OutOfMemoryError` pada 12:39 dan 12:42; satu terjadi di thread ExoPlayer, satu pada Binder, dan satu saat SharedPreferences menulis autosave. Stack trace menunjukkan heap sudah hampir habis; belum membuktikan ExoPlayer sebagai sumber awal tekanan memori.
+- Thumbnail video sebelumnya menyimpan frame resolusi penuh untuk banyak klip. Ekstraksi kini dibatasi hingga 320 px, dijalankan di IO, dan bitmap dibersihkan saat klip atau layar dilepas.
+- Autosave kini menulis stream serialisasi secara atomik ke file, dengan migrasi dari format SharedPreferences lama.
+- Perlu diuji pada perangkat dengan proyek berisi media resolusi tinggi untuk memastikan crash tidak berulang.
+
 ---
 
 ## 📋 Prioritas Perbaikan yang Disarankan
