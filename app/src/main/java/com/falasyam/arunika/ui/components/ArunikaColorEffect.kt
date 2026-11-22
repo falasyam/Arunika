@@ -1,10 +1,10 @@
 package com.falasyam.arunika.ui.components
 
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.Effect
 import androidx.media3.effect.RgbMatrix
 import com.falasyam.arunika.model.CameraLogProfile
 import com.falasyam.arunika.model.ColorStudioState
-import com.falasyam.arunika.model.LutPreset
 import kotlin.math.pow
 
 /**
@@ -24,7 +24,7 @@ import kotlin.math.pow
  *   4. Gain        — multiply highlights
  *   5. Temperature — geser merah/biru (cool ↔ warm)
  *   6. Saturation  — desaturate/saturate via luminosity mixing
- *   7. LUT baked   — 5 preset built-in sebagai matrix aproximasi
+ *   7. LUT preset bawaan sebagai matrix aproximasi; custom LUT diproses dengan shader 3D LUT
  */
 @UnstableApi
 class ArunikaColorEffect(private val state: ColorStudioState) : RgbMatrix {
@@ -40,7 +40,7 @@ class ArunikaColorEffect(private val state: ColorStudioState) : RgbMatrix {
         val gain = n.gain
         return lift.isNeutral && gamma.isNeutral && gain.isNeutral &&
                 n.temperature == 0f && n.saturation == 1.0f &&
-                n.contrast == 1.0f && n.selectedLut == null &&
+                n.contrast == 1.0f && (n.selectedLut == null || n.selectedLut?.isCustom == true) &&
                 state.inputLogProfile == CameraLogProfile.REC709
     }
 
@@ -127,10 +127,10 @@ class ArunikaColorEffect(private val state: ColorStudioState) : RgbMatrix {
                 m = multiplyMatrix(m, contrastMatrix(contrast, 0f))
             }
 
-            // ===== 9. LUT Preset approximasi sebagai matrix =====
-            node.selectedLut?.let { lut ->
+            // ===== 9. LUT preset bawaan sebagai matrix approximasi =====
+            node.selectedLut?.takeUnless { it.isCustom }?.let { lut ->
                 val lutIntensity = node.lutIntensity
-                val lutMatrix = lutToMatrix(lut.id, lut.isCustom, lut.name)
+                val lutMatrix = lutToMatrix(lut.id)
                 // Interpolasi antara identity dan LUT matrix sesuai intensity
                 val blended = blendMatrix(identityMatrix(), lutMatrix, lutIntensity)
                 m = multiplyMatrix(m, blended)
@@ -224,15 +224,10 @@ class ArunikaColorEffect(private val state: ColorStudioState) : RgbMatrix {
             FloatArray(16) { i -> a[i] * (1f - t) + b[i] * t }
 
         /**
-         * LUT preset built-in sebagai matrix approximasi yang berdekatan visual.
-         * Untuk custom LUT .cube, kita gunakan matrix generik yang sedikit memberi look.
+         * LUT preset bawaan sebagai matrix approximasi yang berdekatan visual.
          */
-        private fun lutToMatrix(id: String, isCustom: Boolean, name: String): FloatArray {
+        private fun lutToMatrix(id: String): FloatArray {
             return when {
-                isCustom -> {
-                    // Custom .cube: slight warmth + contrast dari file yang di-import
-                    contrastMatrix(1.08f, -0.03f)
-                }
                 id == "1" -> {
                     // Teal & Orange: shadows teal, highlights orange
                     floatArrayOf(
@@ -284,4 +279,19 @@ class ArunikaColorEffect(private val state: ColorStudioState) : RgbMatrix {
             }
         }
     }
+}
+
+@UnstableApi
+internal fun buildArunikaColorEffects(state: ColorStudioState): List<Effect> {
+    val effects = mutableListOf<Effect>()
+    val matrixEffect = ArunikaColorEffect(state)
+    if (!matrixEffect.isNoOp()) effects.add(matrixEffect)
+
+    val selectedLut = state.activeNode.selectedLut
+    if (selectedLut?.isCustom == true) {
+        selectedLut.parsedLut?.let { parsedLut ->
+            effects.add(ArunikaLutEffect.create(parsedLut, state.activeNode.lutIntensity))
+        }
+    }
+    return effects
 }

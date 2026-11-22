@@ -19,10 +19,12 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.RgbMatrix
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.falasyam.arunika.model.ColorStudioState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * Komponen pemutaran video modern menggunakan AndroidView + ExoPlayer (Media3).
@@ -98,13 +100,11 @@ fun VideoPlayerView(
                     // Snapshot key — berubah setiap kali parameter warna berubah
                     val effectKey = rememberColorEffectKey(colorState)
                     LaunchedEffect(effectKey) {
-                        val effect = ArunikaColorEffect(colorState)
-                        // isNoOp() = true → ExoPlayer skip efek (zero overhead)
-                        if (!effect.isNoOp()) {
-                            exoPlayer.setVideoEffects(listOf(effect))
-                        } else {
-                            exoPlayer.setVideoEffects(emptyList())
+                        delay(100L)
+                        val effects = withContext(Dispatchers.Default) {
+                            buildArunikaColorEffects(colorState)
                         }
+                        exoPlayer.setVideoEffects(effects)
                     }
                 }
 

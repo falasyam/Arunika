@@ -8,7 +8,7 @@
 
 ### 1. Color Grading Tidak Mempengaruhi Video Nyata
 - **Status:** ✅ **SELESAI** (Commit `fec8a29`)
-- **Solusi yang Diterapkan:** Membuat `ArunikaColorEffect` mengimplementasikan `androidx.media3.effect.RgbMatrix` dengan pipeline matrix 4×4 kolom-mayor GPU (CST, Lift, Gamma, Gain, Temperature, Saturation, Contrast, LUT Preset). Diterapkan langsung ke ExoPlayer via `setVideoEffects()`.
+- **Solusi yang Diterapkan:** `ArunikaColorEffect` menerapkan CST, Lift, Gamma, Gain, Temperature, Saturation, Contrast, dan preset bawaan melalui matrix GPU. Custom LUT kini memakai data LUT yang diimpor melalui shader `SingleColorLut`, termasuk intensity blend, pada preview dan export.
 
 ---
 
@@ -20,7 +20,7 @@
 
 ### 3. Export Video Hanya Simulasi (Fake Progress Bar)
 - **Status:** ✅ **SELESAI** (Commit `feb39fd`)
-- **Solusi yang Diterapkan:** Mengimplementasikan hardware transcoding nyata menggunakan `androidx.media3.transformer.Transformer` & `MediaCodec` di `DeliverScreen.kt`. Efek color grading dibakar (*baked*) langsung ke video hasil render via `ArunikaColorEffect`, mendukung output H.264 & H.265 (HEVC), estimasi bitrate nyata, progress bar real-time dari `ProgressHolder`, penyimpanan otomatis ke direktori Movies, dan registrasi ke MediaStore.
+- **Solusi yang Diterapkan:** Mengimplementasikan hardware transcoding nyata menggunakan `androidx.media3.transformer.Transformer` & `MediaCodec` di `DeliverScreen.kt`. Color grading matrix dan custom LUT dibakar (*baked*) ke video hasil render, mendukung output H.264 & H.265 (HEVC), estimasi bitrate nyata, progress bar real-time dari `ProgressHolder`, penyimpanan otomatis ke direktori Movies, dan registrasi ke MediaStore.
 
 ---
 
@@ -135,6 +135,27 @@
 - Thumbnail video sebelumnya menyimpan frame resolusi penuh untuk banyak klip. Ekstraksi kini dibatasi hingga 320 px, dijalankan di IO, dan bitmap dibersihkan saat klip atau layar dilepas.
 - Autosave kini menulis stream serialisasi secara atomik ke file, dengan migrasi dari format SharedPreferences lama.
 - Perlu diuji pada perangkat dengan proyek berisi media resolusi tinggi untuk memastikan crash tidak berulang.
+
+### 18. Force-Close saat Mengedit Text & Style
+**Lokasi:** `TitlingScreen.kt`, `VideoPlayerView.kt`
+**Status:** ✅ **DIPERBAIKI & DIUJI DI PERANGKAT**
+- Log perangkat saat reproduksi menunjukkan heap mencapai 255/256 MB sebelum `OutOfMemoryError`. Sebelumnya Cut menggunakan ExoPlayer bersama, sedangkan preview Titling membuat player/decoder lokal kedua.
+- Preview Titling kini memakai ExoPlayer bersama editor agar perpindahan tab tidak membuka decoder video tambahan.
+- Pixel 6a: setelah instalasi build terbaru, membuka Text & Style dan mengetik teks tidak menutup aplikasi; proses tetap hidup dan tidak ada `FATAL EXCEPTION`/OOM pada validasi tersebut.
+
+### 19. Project List Tidak Menampilkan Thumbnail dan Jumlah Media
+**Lokasi:** `ArunikaMainShell.kt`, `ProjectListScreen.kt`
+**Status:** ✅ **DIPERBAIKI & DIUJI DI PERANGKAT**
+- Klip hasil edit hanya disimpan di state editor, tidak diperbarui ke `ProjectItem` yang ditampilkan Project List.
+- Perubahan klip kini disinkronkan kembali ke project beserta durasi; kartu menampilkan jumlah video, foto, dan audio secara terpisah.
+- Thumbnail diambil dari klip bertipe video yang memiliki URI. Pixel 6a menampilkan thumbnail aktual dan hitungan `1 Video • 0 Foto • 1 Audio` setelah kembali dari editor.
+
+### 20. Custom LUT Tidak Ikut ke Export
+**Lokasi:** `ArunikaColorEffect.kt`, `ArunikaLutEffect.kt`, `VideoPlayerView.kt`, `DeliverScreen.kt`
+**Status:** ✅ **DIPERBAIKI; EXPORT SDR DIUJI DI PERANGKAT**
+- Sebelumnya custom `.cube` hanya mendapat matrix kontras generik; nilai LUT yang diparsing tidak diterapkan ke frame export.
+- Data LUT 1D/3D kini diubah menjadi LUT GPU Media3, dengan intensity blend, dan dipasang pada pipeline preview serta export. Export memberi error eksplisit bila data custom LUT tidak tersedia.
+- Pixel 6a: export H.264 SDR dengan custom LUT selesai dan file muncul di `Movies/Arunika`. HDR masih mengikuti keterbatasan dukungan `SingleColorLut` pada Media3 1.4.1.
 
 ---
 

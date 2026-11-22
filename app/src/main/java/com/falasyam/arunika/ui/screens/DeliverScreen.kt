@@ -61,7 +61,7 @@ import com.falasyam.arunika.model.TitleElement
 import com.falasyam.arunika.model.TitleFont
 import com.falasyam.arunika.model.TimelineClip
 import com.falasyam.arunika.model.interpolateKeyframes
-import com.falasyam.arunika.ui.components.ArunikaColorEffect
+import com.falasyam.arunika.ui.components.buildArunikaColorEffects
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -126,7 +126,7 @@ private suspend fun publishExportToMovies(context: android.content.Context, rend
 /**
  * Tab 4: Deliver & Export
  * - Real hardware-accelerated video rendering via Media3 Transformer & MediaCodec
- * - Color grading baked directly into the output video via ArunikaColorEffect (GPU 4x4 matrix)
+ * - Color grading and imported LUTs are applied to the output video in the Media3 effect pipeline
  * - Pilihan resolusi hingga 4K UHD 60fps
  * - Format H.264 (AVC) dan H.265 (HEVC 10-bit)
  * - Real-time progress monitoring & saving directly to device storage
@@ -668,8 +668,11 @@ private fun buildEditedClip(
                 videoEffects.add(SpeedChangeEffect(clip.speedMultiplier))
             }
             if (includeVideo && colorStudioState != null) {
-                val colorEffect = ArunikaColorEffect(colorStudioState)
-                if (!colorEffect.isNoOp()) videoEffects.add(colorEffect)
+                val selectedLut = colorStudioState.activeNode.selectedLut
+                check(selectedLut?.isCustom != true || selectedLut.parsedLut != null) {
+                    "Imported LUT data is unavailable. Re-import the LUT before exporting."
+                }
+                videoEffects.addAll(buildArunikaColorEffects(colorStudioState))
             }
             if (includeVideo && titleElements.isNotEmpty()) {
                 videoEffects.add(

@@ -428,7 +428,9 @@ fun ProjectCard(
 
     LaunchedEffect(project.id, project.videoClips) {
         projectThumbnail = null
-        val clip = project.videoClips.firstOrNull { it.uriString != null }
+        val clip = project.videoClips.firstOrNull {
+            it.mediaType == ClipMediaType.VIDEO && it.uriString != null
+        }
         if (clip?.uriString != null) {
             projectThumbnail = withContext(Dispatchers.IO) {
                 val retriever = MediaMetadataRetriever()
@@ -565,18 +567,15 @@ fun ProjectCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline
                         )
+                        val videoCount = project.videoClips.count { it.mediaType == ClipMediaType.VIDEO }
+                        val photoCount = project.videoClips.count { it.mediaType == ClipMediaType.PHOTO }
                         Text(
-                            text = "${project.videoClips.size} Video/Foto",
+                            text = "$videoCount Video • $photoCount Foto • ${project.audioClips.size} Audio",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        if (project.audioClips.isNotEmpty()) {
-                            Text(
-                                text = "• ${project.audioClips.size} Audio",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(

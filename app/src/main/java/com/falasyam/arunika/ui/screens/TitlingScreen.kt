@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.exoplayer.ExoPlayer
 import com.falasyam.arunika.model.*
 import com.falasyam.arunika.ui.components.VideoPlayerView
 import kotlin.math.roundToInt
@@ -49,6 +50,8 @@ fun TitlingScreen(
     keyframeState: KeyframeState = remember { KeyframeState() },
     aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
     videoUri: String? = null,
+    isPlaying: Boolean = false,
+    sharedExoPlayer: ExoPlayer? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -89,7 +92,8 @@ fun TitlingScreen(
                 if (videoUri != null) {
                     VideoPlayerView(
                         uri = videoUri,
-                        isPlaying = false,
+                        isPlaying = isPlaying,
+                        sharedExoPlayer = sharedExoPlayer,
                         modifier = Modifier
                             .fillMaxSize()
                             .alpha(0.6f)

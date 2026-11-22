@@ -143,6 +143,11 @@ fun ArunikaMainShell() {
             // EDITOR SHELL: Workspace Aktif (Cut, Color, Audio, Deliver)
             ArunikaEditorShell(
                 project = currentProj,
+                onProjectUpdated = { updatedProject ->
+                    projects = projects.map { existing ->
+                        if (existing.id == updatedProject.id) updatedProject else existing
+                    }
+                },
                 onBackToProjects = {
                     activeProject = null
                 }
@@ -158,6 +163,7 @@ fun ArunikaMainShell() {
 @Composable
 fun ArunikaEditorShell(
     project: ProjectItem,
+    onProjectUpdated: (ProjectItem) -> Unit,
     onBackToProjects: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
@@ -317,6 +323,27 @@ fun ArunikaEditorShell(
         }
         (savedSnapshot as? EditorSnapshot)?.let(::restoreSnapshot)
         isEditorSnapshotLoaded = true
+    }
+
+    LaunchedEffect(project.id, editorVideoClips, editorAudioClips, isEditorSnapshotLoaded) {
+        if (!isEditorSnapshotLoaded) return@LaunchedEffect
+        val durationMs = maxOf(
+            editorVideoClips.maxOfOrNull { it.startOffsetMs + it.durationMs } ?: 0L,
+            editorAudioClips.maxOfOrNull { it.startOffsetMs + it.durationMs } ?: 0L
+        )
+        val updatedProject = project.copy(
+            videoClips = editorVideoClips,
+            audioClips = editorAudioClips,
+            durationMs = durationMs,
+            lastModified = "Baru saja"
+        )
+        if (
+            project.videoClips != updatedProject.videoClips ||
+            project.audioClips != updatedProject.audioClips ||
+            project.durationMs != updatedProject.durationMs
+        ) {
+            onProjectUpdated(updatedProject)
+        }
     }
 
     val undoStack = remember { mutableStateListOf<EditorSnapshot>() }
@@ -594,7 +621,9 @@ fun ArunikaEditorShell(
                                 titlingState = titlingState,
                                 keyframeState = keyframeState,
                                 aspectRatio = project.aspectRatio,
-                                videoUri = currentVideoUri
+                                videoUri = currentVideoUri,
+                                isPlaying = isPlaying,
+                                sharedExoPlayer = sharedExoPlayer
                             )
                             ArunikaTab.DELIVER -> DeliverScreen(
                                 state = deliverState,
