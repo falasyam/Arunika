@@ -1,7 +1,12 @@
 package com.falasyam.arunika.ui.screens
 
+import android.Manifest
+import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +26,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
@@ -31,8 +39,60 @@ import com.falasyam.arunika.model.ExportCodec
 import com.falasyam.arunika.model.ExportResolution
 import com.falasyam.arunika.ui.components.ArunikaColorEffect
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+
+private suspend fun publishExportToMovies(context: android.content.Context, renderedFile: File, fileName: String): String =
+    withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(
+                    MediaStore.Video.Media.RELATIVE_PATH,
+                    "${Environment.DIRECTORY_MOVIES}/Arunika"
+                )
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+            val resolver = context.contentResolver
+            val outputUri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("Tidak dapat membuat file export di Movies/Arunika")
+            try {
+                resolver.openOutputStream(outputUri, "w")?.use { output ->
+                    renderedFile.inputStream().use { input -> input.copyTo(output) }
+                } ?: error("Tidak dapat membuka file tujuan export")
+                val published = ContentValues().apply {
+                    put(MediaStore.Video.Media.IS_PENDING, 0)
+                }
+                resolver.update(outputUri, published, null, null)
+                outputUri.toString()
+            } catch (exception: Exception) {
+                resolver.delete(outputUri, null, null)
+                throw exception
+            }
+        } else {
+            val moviesDirectory = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+                "Arunika"
+            )
+            if (!moviesDirectory.exists() && !moviesDirectory.mkdirs()) {
+                error("Tidak dapat membuat folder Movies/Arunika")
+            }
+            val destination = File(moviesDirectory, fileName)
+            renderedFile.inputStream().use { input ->
+                destination.outputStream().use { output -> input.copyTo(output) }
+            }
+            android.media.MediaScannerConnection.scanFile(
+                context,
+                arrayOf(destination.absolutePath),
+                arrayOf("video/mp4"),
+                null
+            )
+            destination.absolutePath
+        }
+    }
 
 /**
  * Tab 4: Deliver & Export
@@ -52,6 +112,13 @@ fun DeliverScreen(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            Toast.makeText(context, "Izin penyimpanan diperlukan untuk export ke Movies/Arunika", Toast.LENGTH_LONG).show()
+        }
+    }
     var resolution by state::resolution
     var codec by state::codec
     var fps by state::frameRate
@@ -60,6 +127,7 @@ fun DeliverScreen(
     var progress by state::exportProgress
 
     var activeTransformer by remember { mutableStateOf<Transformer?>(null) }
+    var activeOutputFile by remember { mutableStateOf<File?>(null) }
     var lastExportedPath by remember { mutableStateOf<String?>(null) }
 
     // Estimasi ukuran file (durasi 19 detik)
@@ -292,6 +360,7 @@ fun DeliverScreen(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             activeTransformer?.cancel()
                             activeTransformer = null
+                            activeOutputFile?.delete()
                             isExporting = false
                             progress = 0f
                             state.isExporting = false
@@ -311,11 +380,18 @@ fun DeliverScreen(
                         Toast.makeText(context, "Pilih klip video di tab Cut terlebih dahulu untuk diekspor!", Toast.LENGTH_LONG).show()
                         return@Button
                     }
+                    if (
+                        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        return@Button
+                    }
 
                     try {
-                        val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
                         val outputFileName = "Arunika_Master_${System.currentTimeMillis()}.mp4"
-                        val outputFile = File(moviesDir, outputFileName)
+                        val outputFile = File(context.cacheDir, outputFileName)
+                        activeOutputFile = outputFile
 
                         isExporting = true
                         progress = 0.01f
@@ -347,20 +423,37 @@ fun DeliverScreen(
                             .setVideoMimeType(selectedVideoMime)
                             .addListener(object : Transformer.Listener {
                                 override fun onCompleted(composition: androidx.media3.transformer.Composition, exportResult: ExportResult) {
-                                    isExporting = false
-                                    progress = 1.0f
-                                    state.isExporting = false
-                                    state.exportProgress = 1.0f
                                     activeTransformer = null
-                                    lastExportedPath = outputFile.absolutePath
-
-                                    android.media.MediaScannerConnection.scanFile(
-                                        context,
-                                        arrayOf(outputFile.absolutePath),
-                                        arrayOf("video/mp4"),
-                                        null
-                                    )
-                                    Toast.makeText(context, "Export Berhasil: ${outputFile.name}", Toast.LENGTH_LONG).show()
+                                    scope.launch {
+                                        try {
+                                            val savedPath = publishExportToMovies(context, outputFile, outputFile.name)
+                                            lastExportedPath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                                "Movies/Arunika/${outputFile.name}"
+                                            } else {
+                                                savedPath
+                                            }
+                                            progress = 1.0f
+                                            state.exportProgress = 1.0f
+                                            Toast.makeText(
+                                                context,
+                                                "Export berhasil: Movies/Arunika/${outputFile.name}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        } catch (exception: Exception) {
+                                            progress = 0f
+                                            state.exportProgress = 0f
+                                            Toast.makeText(
+                                                context,
+                                                "Gagal menyimpan ke Movies/Arunika: ${exception.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        } finally {
+                                            outputFile.delete()
+                                            activeOutputFile = null
+                                            isExporting = false
+                                            state.isExporting = false
+                                        }
+                                    }
                                 }
 
                                 override fun onError(
@@ -373,6 +466,8 @@ fun DeliverScreen(
                                     state.isExporting = false
                                     state.exportProgress = 0f
                                     activeTransformer = null
+                                    outputFile.delete()
+                                    activeOutputFile = null
                                     Toast.makeText(context, "Gagal merender: ${exportException.message}", Toast.LENGTH_LONG).show()
                                 }
                             })

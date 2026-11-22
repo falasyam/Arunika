@@ -145,6 +145,8 @@ fun ArunikaEditorShell(
     val titlingState = remember { TitlingState() }
     val keyframeState = remember { KeyframeState() }
     val deliverState = remember { DeliverExportState() }
+    var editorVideoClips by remember(project.id) { mutableStateOf(project.videoClips) }
+    var editorAudioClips by remember(project.id) { mutableStateOf(project.audioClips) }
     var isPlaying by remember { mutableStateOf(false) }
     var currentVideoUri by remember(project) { mutableStateOf<String?>(project.videoClips.firstOrNull()?.uriString) }
 
@@ -475,8 +477,10 @@ fun ArunikaEditorShell(
                     ) { targetTab ->
                         when (targetTab) {
                             ArunikaTab.CUT -> CutScreen(
-                                initialClips = project.videoClips,
-                                initialAudioClips = project.audioClips,
+                                initialClips = editorVideoClips,
+                                initialAudioClips = editorAudioClips,
+                                onVideoClipsChanged = { editorVideoClips = it },
+                                onAudioClipsChanged = { editorAudioClips = it },
                                 aspectRatio = project.aspectRatio,
                                 colorStudioState = colorStudioState,
                                 titlingState = titlingState,

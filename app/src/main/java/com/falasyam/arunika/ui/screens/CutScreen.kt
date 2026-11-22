@@ -57,6 +57,8 @@ import androidx.media3.exoplayer.ExoPlayer
 fun CutScreen(
     initialClips: List<TimelineClip> = emptyList(),
     initialAudioClips: List<TimelineClip> = emptyList(),
+    onVideoClipsChanged: (List<TimelineClip>) -> Unit = {},
+    onAudioClipsChanged: (List<TimelineClip>) -> Unit = {},
     aspectRatio: AspectRatioMode = AspectRatioMode.CINEMA_16_9,
     colorStudioState: ColorStudioState? = null,
     titlingState: TitlingState? = null,
@@ -76,6 +78,13 @@ fun CutScreen(
 
     // State Klip Audio (Track A1) pada Timeline yang sama
     var audioClips by remember(initialAudioClips) { mutableStateOf(initialAudioClips) }
+
+    LaunchedEffect(videoClips) {
+        onVideoClipsChanged(videoClips)
+    }
+    LaunchedEffect(audioClips) {
+        onAudioClipsChanged(audioClips)
+    }
     val clipThumbnails = remember { mutableStateMapOf<String, Bitmap>() }
 
     LaunchedEffect(videoClips) {
