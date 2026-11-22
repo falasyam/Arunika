@@ -2,6 +2,7 @@ package com.falasyam.arunika.model
 
 import java.io.InputStream
 import kotlin.math.floor
+import java.io.Serializable
 
 /**
  * Format LUT yang didukung oleh Arunika
@@ -25,7 +26,7 @@ data class ParsedLut(
     val is3D: Boolean = true,
     val data: FloatArray, // Array R, G, B datar: [size * size * size * 3]
     val title: String = name
-) {
+) : Serializable {
     /**
      * Melakukan Trilinear Interpolation untuk memetakan warna input (r, g, b in [0, 1])
      * ke ruang warna hasil grading LUT.

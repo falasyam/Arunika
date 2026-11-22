@@ -3,6 +3,7 @@ package com.falasyam.arunika.model
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import java.util.UUID
+import java.io.Serializable
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.PI
@@ -37,7 +38,7 @@ data class Keyframe(
     val property: AnimProperty,
     val value: Float,
     val easing: EasingType = EasingType.EASE_IN_OUT
-)
+) : Serializable
 
 /**
  * Kumpulan nilai transform hasil interpolasi pada satu titik waktu

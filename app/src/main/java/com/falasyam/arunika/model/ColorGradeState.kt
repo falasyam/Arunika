@@ -10,6 +10,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+import java.io.Serializable
 
 enum class WheelTarget(val label: String, val description: String) {
     LIFT("Lift", "Shadows / Black Point"),
@@ -89,7 +90,7 @@ data class LutPreset(
     val format: LutFormat = LutFormat.CUBE_3D,
     val isCustom: Boolean = false,
     val parsedLut: ParsedLut? = null
-)
+) : Serializable
 
 /**
  * Mode tampilan Scopes teknis

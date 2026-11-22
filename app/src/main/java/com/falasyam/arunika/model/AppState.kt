@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import java.io.Serializable
 
 /**
  * Ukuran resolusi video (Lebar x Tinggi dalam piksel) dengan dukungan kustom
@@ -94,7 +95,7 @@ data class TimelineClip(
     val volume: Float = 1.0f,
     val speedMultiplier: Float = 1.0f,
     val sourceOffsetMs: Long = 0L
-)
+) : Serializable
 
 /**
  * Model data sebuah projek dalam Arunika
@@ -110,7 +111,7 @@ data class ProjectItem(
     val videoClips: List<TimelineClip> = emptyList(),
     val audioClips: List<TimelineClip> = emptyList(),
     val gradientColors: List<Long> = listOf(0xFF1E3A8A, 0xFF3B82F6)
-)
+) : Serializable
 
 /**
  * Factory untuk data sampel projek
@@ -190,7 +191,7 @@ data class AudioStudioSnapshot(
     val bassGainDb: Float,
     val midGainDb: Float,
     val trebleGainDb: Float
-)
+) : Serializable
 
 class AudioStudioState {
     var masterVolume by mutableFloatStateOf(1.0f)

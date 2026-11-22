@@ -2,6 +2,7 @@ package com.falasyam.arunika.model
 
 import androidx.compose.runtime.mutableStateListOf
 import java.util.UUID
+import java.io.Serializable
 
 /**
  * Gaya visual title element.
@@ -73,7 +74,7 @@ data class TitleElement(
     val font: TitleFont = TitleFont.SANS,
     val wordHighlight: Boolean = false,
     val highlightColor: Long = 0xFFFFD600
-)
+) : Serializable
 
 /**
  * State holder untuk modul Titling.

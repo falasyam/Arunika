@@ -4,7 +4,11 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.RectF
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -41,15 +45,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.*
 import androidx.media3.transformer.Composition as MediaComposition
 import androidx.media3.effect.OverlayEffect
-import androidx.media3.effect.OverlaySettings
-import androidx.media3.effect.TextOverlay
+import androidx.media3.effect.BitmapOverlay
+import androidx.media3.effect.TextureOverlay
 import androidx.media3.common.util.Size
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.BackgroundColorSpan
-import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
-import android.text.style.TypefaceSpan
 import android.graphics.Typeface
 import com.google.common.collect.ImmutableList
 import com.falasyam.arunika.model.ColorStudioState
@@ -779,7 +777,7 @@ private fun createTitleOverlayEffect(
             timelineStartMs = timelineStartMs
         )
     }
-    return OverlayEffect(ImmutableList.copyOf(overlays))
+    return OverlayEffect(ImmutableList.copyOf<TextureOverlay>(overlays))
 }
 
 private class TimelineTextOverlay(
@@ -787,28 +785,35 @@ private class TimelineTextOverlay(
     private val keyframes: List<Keyframe>,
     private val frameRate: Int,
     private val timelineStartMs: Long
-) : TextOverlay() {
+) : BitmapOverlay() {
     private var videoSize: Size? = null
-    private var cachedTextKey: Pair<String, Int>? = null
-    private var cachedText = SpannableString(" ")
+    private var overlayBitmap: Bitmap? = null
 
     override fun configure(videoSize: Size) {
         super.configure(videoSize)
+        if (this.videoSize != videoSize) {
+            overlayBitmap?.recycle()
+            overlayBitmap = Bitmap.createBitmap(
+                videoSize.width,
+                videoSize.height,
+                Bitmap.Config.ARGB_8888
+            )
+        }
         this.videoSize = videoSize
     }
 
-    override fun getText(presentationTimeUs: Long): SpannableString {
+    override fun getBitmap(presentationTimeUs: Long): Bitmap {
+        val bitmap = checkNotNull(overlayBitmap) { "Title overlay was not configured before rendering." }
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
         val frame = timelineFrame(presentationTimeUs)
         val elapsedFrames = frame - element.startFrame
         val active = elapsedFrames >= 0 && elapsedFrames < element.durationFrames.coerceAtLeast(1)
+        if (!active) return bitmap
+
         val introFrames = (frameRate * 0.4f).roundToInt().coerceAtLeast(1)
-        val introProgress = if (active) {
-            (elapsedFrames.toFloat() / introFrames).coerceIn(0f, 1f)
-        } else {
-            0f
-        }
+        val introProgress = (elapsedFrames.toFloat() / introFrames).coerceIn(0f, 1f)
         val renderedText = when {
-            !active -> " "
             element.animationType == TitleAnimation.TYPEWRITER ->
                 element.text.take((element.text.length * introProgress).roundToInt())
             element.animationType == TitleAnimation.WORD_BY_WORD -> {
@@ -817,56 +822,86 @@ private class TimelineTextOverlay(
                 words.take(count).joinToString(" ")
             }
             else -> element.text
-        }.ifEmpty { " " }
+        }
+        if (renderedText.isBlank()) return bitmap
+
         val highlightedWordIndex = if (
-            active && element.wordHighlight && element.animationType == TitleAnimation.WORD_BY_WORD
+            element.wordHighlight && element.animationType == TitleAnimation.WORD_BY_WORD
         ) {
             val wordCount = element.text.split(Regex("\\s+")).count { it.isNotEmpty() }
             (introProgress * wordCount).toInt().coerceIn(0, (wordCount - 1).coerceAtLeast(0))
         } else {
             -1
         }
-        val textKey = renderedText to highlightedWordIndex
-        if (cachedTextKey != textKey) {
-            cachedTextKey = textKey
-            cachedText = createStyledText(renderedText, highlightedWordIndex)
-        }
-        return cachedText
-    }
-
-    override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
-        val frame = timelineFrame(presentationTimeUs)
-        val elapsedFrames = frame - element.startFrame
-        val active = elapsedFrames >= 0 && elapsedFrames < element.durationFrames.coerceAtLeast(1)
-        val introFrames = (frameRate * 0.4f).roundToInt().coerceAtLeast(1)
-        val introProgress = if (active) {
-            (elapsedFrames.toFloat() / introFrames).coerceIn(0f, 1f)
-        } else {
-            0f
-        }
         val transform = interpolateKeyframes(keyframes, frameToMs(frame))
         val animationAlpha = if (element.animationType == TitleAnimation.FADE_IN) introProgress else 1f
-        val videoHeight = videoSize?.height ?: 1080
-        val textScale = element.fontSize * videoHeight / 30_000f
+        val videoHeight = videoSize?.height ?: canvas.height
         val slideOffset = if (element.animationType == TitleAnimation.SLIDE_UP) {
-            (1f - introProgress) * 0.06f
+            (1f - introProgress) * videoHeight * 0.06f
         } else {
             0f
         }
-        val x = (element.x + transform.posX / 100f).coerceIn(0f, 1f)
-        val y = (element.y + transform.posY / 100f + slideOffset).coerceIn(0f, 1f)
-        return OverlaySettings.Builder()
-            .setBackgroundFrameAnchor(2f * x - 1f, 1f - 2f * y)
-            .setScale(textScale * transform.scale, textScale * transform.scale)
-            .setRotationDegrees(transform.rotation)
-            .setAlphaScale(
-                if (active) {
-                    (element.opacity * transform.opacity * animationAlpha).coerceIn(0f, 1f)
-                } else {
-                    0f
-                }
+        val centerX = ((element.x + transform.posX / 100f).coerceIn(0f, 1f) * canvas.width)
+        val centerY = (
+            (element.y + transform.posY / 100f).coerceIn(0f, 1f) * canvas.height - slideOffset
+        )
+        val opacity = (element.opacity * transform.opacity * animationAlpha).coerceIn(0f, 1f)
+        val textSize = element.fontSize * videoHeight / 360f
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = element.textColor.toInt()
+            alpha = (Color.alpha(color) * opacity).roundToInt().coerceIn(0, 255)
+            this.textSize = textSize
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create(
+                when (element.font) {
+                    TitleFont.SANS -> "sans-serif"
+                    TitleFont.SERIF, TitleFont.CINEMATIC -> "serif"
+                    TitleFont.MONO -> "monospace"
+                    TitleFont.HANDWRITTEN -> "cursive"
+                },
+                Typeface.BOLD
             )
-            .build()
+        }
+        val metrics = textPaint.fontMetrics
+        val baseline = -(metrics.ascent + metrics.descent) / 2f
+        val textWidth = textPaint.measureText(renderedText)
+        val paddingX = textSize * 0.35f
+        val paddingY = textSize * 0.18f
+
+        canvas.save()
+        canvas.translate(centerX, centerY)
+        canvas.rotate(transform.rotation)
+        canvas.scale(transform.scale.coerceAtLeast(0.01f), transform.scale.coerceAtLeast(0.01f))
+        if (Color.alpha(element.bgColor.toInt()) > 0) {
+            val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = element.bgColor.toInt()
+                alpha = (Color.alpha(color) * opacity).roundToInt().coerceIn(0, 255)
+            }
+            canvas.drawRoundRect(
+                RectF(
+                    -textWidth / 2f - paddingX,
+                    metrics.ascent - paddingY,
+                    textWidth / 2f + paddingX,
+                    metrics.descent + paddingY
+                ),
+                textSize * 0.12f,
+                textSize * 0.12f,
+                backgroundPaint
+            )
+        }
+        if (highlightedWordIndex >= 0) {
+            drawHighlightedWords(canvas, renderedText, highlightedWordIndex, baseline, textPaint, opacity)
+        } else {
+            canvas.drawText(renderedText, 0f, baseline, textPaint)
+        }
+        canvas.restore()
+        return bitmap
+    }
+
+    override fun release() {
+        super.release()
+        overlayBitmap?.recycle()
+        overlayBitmap = null
     }
 
     private fun timelineFrame(presentationTimeUs: Long): Int {
@@ -878,54 +913,31 @@ private class TimelineTextOverlay(
     private fun frameToMs(frame: Int): Long =
         frame * 1000L / frameRate.coerceAtLeast(1)
 
-    private fun createStyledText(text: String, highlightedWordIndex: Int): SpannableString {
-        val spannable = SpannableString(text)
-        val end = text.length
-        spannable.setSpan(
-            ForegroundColorSpan(element.textColor.toInt()),
-            0,
-            end,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        spannable.setSpan(
-            TypefaceSpan(
-                when (element.font) {
-                    TitleFont.SANS -> "sans-serif"
-                    TitleFont.SERIF, TitleFont.CINEMATIC -> "serif"
-                    TitleFont.MONO -> "monospace"
-                    TitleFont.HANDWRITTEN -> "cursive"
-                }
-            ),
-            0,
-            end,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        spannable.setSpan(
-            StyleSpan(Typeface.BOLD),
-            0,
-            end,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        if (element.bgColor ushr 24 != 0L) {
-            spannable.setSpan(
-                BackgroundColorSpan(element.bgColor.toInt()),
-                0,
-                end,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        if (highlightedWordIndex >= 0) {
-            val words = Regex("\\S+").findAll(text).toList()
-            words.getOrNull(highlightedWordIndex)?.let { word ->
-                spannable.setSpan(
-                    ForegroundColorSpan(element.highlightColor.toInt()),
-                    word.range.first,
-                    word.range.last + 1,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+    private fun drawHighlightedWords(
+        canvas: Canvas,
+        text: String,
+        highlightedWordIndex: Int,
+        baseline: Float,
+        paint: Paint,
+        opacity: Float
+    ) {
+        val words = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val wordWidths = words.map { paint.measureText(it) }
+        val spaceWidth = paint.measureText(" ")
+        val totalWidth = wordWidths.sum() + spaceWidth * (words.size - 1).coerceAtLeast(0)
+        var x = -totalWidth / 2f
+        words.forEachIndexed { index, word ->
+            val width = wordWidths[index]
+            val originalColor = paint.color
+            if (index == highlightedWordIndex) {
+                paint.color = element.highlightColor.toInt()
+                paint.alpha = (Color.alpha(paint.color) * opacity).roundToInt().coerceIn(0, 255)
             }
+            canvas.drawText(word, x + width / 2f, baseline, paint)
+            paint.color = originalColor
+            paint.alpha = (Color.alpha(originalColor) * opacity).roundToInt().coerceIn(0, 255)
+            x += width + spaceWidth
         }
-        return spannable
     }
 }
 

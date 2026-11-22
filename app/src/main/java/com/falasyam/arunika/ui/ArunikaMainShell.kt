@@ -29,6 +29,14 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.MediaItem
 import android.net.Uri
 import androidx.compose.runtime.DisposableEffect
+import android.widget.Toast
+import com.falasyam.arunika.model.EditorAutosave
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.withContext
+import java.io.Serializable
 
 private data class GradeNodeSnapshot(
     val id: Int,
@@ -54,7 +62,7 @@ private data class GradeNodeSnapshot(
     val lut: LutPreset?,
     val lutIntensity: Float,
     val vignette: Float
-)
+) : Serializable
 
 private data class EditorSnapshot(
     val audio: AudioStudioSnapshot,
@@ -70,7 +78,7 @@ private data class EditorSnapshot(
     val splitCompareEnabled: Boolean,
     val splitPosition: Float,
     val nodes: List<GradeNodeSnapshot>
-)
+) : Serializable
 
 /**
  * Shell Navigasi Global Arunika:
@@ -81,9 +89,20 @@ private data class EditorSnapshot(
  */
 @Composable
 fun ArunikaMainShell() {
+    val context = LocalContext.current
     // Project Manager State
-    var projects by remember { mutableStateOf(ProjectPresets.createDefaultProjects()) }
+    var projects by remember {
+        mutableStateOf(EditorAutosave.loadProjects(context) ?: ProjectPresets.createDefaultProjects())
+    }
     var activeProject by remember { mutableStateOf<ProjectItem?>(null) }
+
+    LaunchedEffect(projects) {
+        try {
+            withContext(Dispatchers.IO) { EditorAutosave.saveProjects(context, projects) }
+        } catch (exception: Exception) {
+            Toast.makeText(context, "Project tidak dapat disimpan otomatis.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     AnimatedContent(
         targetState = activeProject,
@@ -135,7 +154,7 @@ fun ArunikaMainShell() {
 /**
  * Shell Editor untuk Projek yang Sedang Aktif
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun ArunikaEditorShell(
     project: ProjectItem,
@@ -153,6 +172,7 @@ fun ArunikaEditorShell(
     val deliverState = remember { DeliverExportState() }
     var editorVideoClips by remember(project.id) { mutableStateOf(project.videoClips) }
     var editorAudioClips by remember(project.id) { mutableStateOf(project.audioClips) }
+    var isEditorSnapshotLoaded by remember(project.id) { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(false) }
     var currentVideoUri by remember(project) { mutableStateOf<String?>(project.videoClips.firstOrNull()?.uriString) }
 
@@ -215,18 +235,18 @@ fun ArunikaEditorShell(
         }
         return EditorSnapshot(
             audio = audioState.snapshot(),
-            titling = titlingState.elements.toList(),
-            keyframes = keyframeState.keyframes.toList(),
-            videoClips = editorVideoClips.toList(),
-            audioClips = editorAudioClips.toList(),
-            customLuts = colorStudioState.customLuts.toList(),
+            titling = ArrayList(titlingState.elements),
+            keyframes = ArrayList(keyframeState.keyframes),
+            videoClips = ArrayList(editorVideoClips),
+            audioClips = ArrayList(editorAudioClips),
+            customLuts = ArrayList(colorStudioState.customLuts),
             activeNodeIndex = colorStudioState.activeNodeIndex,
             activeTarget = colorStudioState.activeTarget,
             inputLogProfile = colorStudioState.inputLogProfile,
             scopeMode = colorStudioState.scopeMode,
             splitCompareEnabled = colorStudioState.isSplitCompareEnabled,
             splitPosition = colorStudioState.splitPosition,
-            nodes = nodeSnapshots
+            nodes = ArrayList(nodeSnapshots)
         )
     }
 
@@ -291,13 +311,29 @@ fun ArunikaEditorShell(
         }
     }
 
+    LaunchedEffect(project.id) {
+        val savedSnapshot = withContext(Dispatchers.IO) {
+            EditorAutosave.loadEditorState(context, project.id)
+        }
+        (savedSnapshot as? EditorSnapshot)?.let(::restoreSnapshot)
+        isEditorSnapshotLoaded = true
+    }
+
     val undoStack = remember { mutableStateListOf<EditorSnapshot>() }
     val redoStack = remember { mutableStateListOf<EditorSnapshot>() }
     var pendingRestoreSnapshot by remember { mutableStateOf<EditorSnapshot?>(null) }
     var lastActionLabel by remember { mutableStateOf<String?>(null) }
     var showUndoToast by remember { mutableStateOf(false) }
 
-    LaunchedEffect(colorStudioState, audioState, titlingState, keyframeState, project.id) {
+    LaunchedEffect(
+        colorStudioState,
+        audioState,
+        titlingState,
+        keyframeState,
+        project.id,
+        isEditorSnapshotLoaded
+    ) {
+        if (!isEditorSnapshotLoaded) return@LaunchedEffect
         var observedSnapshot = captureSnapshot()
         snapshotFlow { captureSnapshot() }
             .collect { currentSnapshot ->
@@ -309,6 +345,22 @@ fun ArunikaEditorShell(
                     if (undoStack.size > 100) undoStack.removeAt(0)
                     redoStack.clear()
                     observedSnapshot = currentSnapshot
+                }
+            }
+    }
+
+    LaunchedEffect(project.id, isEditorSnapshotLoaded) {
+        if (!isEditorSnapshotLoaded) return@LaunchedEffect
+        snapshotFlow { captureSnapshot() }
+            .drop(1)
+            .debounce(400)
+            .collect { snapshot ->
+                try {
+                    withContext(Dispatchers.IO) {
+                        EditorAutosave.saveEditorState(context, project.id, snapshot)
+                    }
+                } catch (exception: Exception) {
+                    Toast.makeText(context, "Perubahan editor tidak dapat disimpan otomatis.", Toast.LENGTH_LONG).show()
                 }
             }
     }

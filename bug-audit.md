@@ -50,6 +50,7 @@
 - ✅ Hasil interpolasi diterapkan pada transform overlay title di preview Cut saat posisi playhead berubah.
 - ✅ Hasil interpolasi keyframe untuk posisi, skala, rotasi, dan opasitas dibakar ke overlay title saat export klip video/foto dan jeda timeline.
 - ✅ Title, pemunculan berdasarkan frame/durasi, font, warna, serta animasi masuk diterapkan pada hasil export.
+- ✅ Overlay export menggunakan bitmap Canvas agar title kosong, teks biasa, dan caption tidak bergantung pada pengukuran layout teks Media3.
 - ⚠️ Kontrol untuk semua properti serta editing keyframe langsung di timeline masih belum lengkap.
 
 ---
@@ -94,7 +95,7 @@
 ### 11. Seek Bar / Scrubbing di Timeline Belum Ada
 **Lokasi:** `CutScreen.kt`
 **Status:** ✅ **SELESAI**
-- Drag pada area timeline menggeser track di bawah playhead yang tetap; posisi waktu playhead mengikuti scroll dan durasi terpanjang track video/audio.
+- Drag pada area timeline menggeser track di bawah playhead yang tetap; klip diposisikan menurut `startOffsetMs` pada skala waktu yang sama. Uji pada Pixel 6a memastikan klip terakhir tetap terlihat saat playhead mencapai ujung timeline, dan playback berhenti tanpa mengulang.
 
 ### 12. Thumbnail Klip di Timeline Kosong
 **Lokasi:** `CutScreen.kt`
@@ -116,9 +117,10 @@
 
 ### 15. Klip Import Hilang Setelah Berpindah Tab
 **Lokasi:** `ArunikaMainShell.kt`, `CutScreen.kt`
-**Status:** ✅ **SELESAI DI WORKTREE**
+**Status:** ✅ **SELESAI**
 - State klip video/foto dan audio sekarang di-hoist ke editor shell dan diteruskan kembali ke Cut saat tab dibuka lagi.
-- Berlaku selama sesi editor/projek aktif; persistensi setelah aplikasi ditutup atau projek dibuka ulang belum termasuk perbaikan ini.
+- Daftar projek dan state editor terakhir (termasuk klip, audio, titling, keyframe, serta grading) disimpan otomatis dan dipulihkan saat projek dibuka lagi.
+- Import memakai pemilih dokumen dengan izin baca URI persisten agar media tetap dapat diakses setelah aplikasi ditutup.
 
 ### 16. Lokasi File Export
 **Lokasi:** `DeliverScreen.kt`

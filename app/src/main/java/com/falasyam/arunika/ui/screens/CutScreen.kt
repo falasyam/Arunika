@@ -130,9 +130,17 @@ fun CutScreen(
 
     // Android ActivityResult Pickers untuk file fisik dari perangkat
     val videoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }.onFailure {
+                android.util.Log.e("CutScreen", "Could not retain video permission for $uri", it)
+            }
             val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "Video_${System.currentTimeMillis()}.mp4"
             val realDuration = extractMediaDurationMs(it, 5000L)
             val newId = "v${nextIdCounter++}"
@@ -153,9 +161,17 @@ fun CutScreen(
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }.onFailure {
+                android.util.Log.e("CutScreen", "Could not retain photo permission for $uri", it)
+            }
             val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "Foto_${System.currentTimeMillis()}.jpg"
             val newId = "v${nextIdCounter++}"
             val newClip = TimelineClip(
@@ -174,9 +190,17 @@ fun CutScreen(
     }
 
     val audioPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }.onFailure {
+                android.util.Log.e("CutScreen", "Could not retain audio permission for $uri", it)
+            }
             val fileName = it.lastPathSegment?.substringAfterLast('/') ?: "Audio_${System.currentTimeMillis()}.mp3"
             val realDuration = extractMediaDurationMs(it, 8000L)
             val newId = "a${nextIdCounter++}"
@@ -215,7 +239,12 @@ fun CutScreen(
             val startClock = System.currentTimeMillis() - currentPlayheadMs
             while (isPlaying) {
                 val elapsed = System.currentTimeMillis() - startClock
-                currentPlayheadMs = elapsed % totalTimelineDurationMs
+                if (elapsed >= totalTimelineDurationMs) {
+                    currentPlayheadMs = totalTimelineDurationMs
+                    onTogglePlay()
+                    break
+                }
+                currentPlayheadMs = elapsed
                 kotlinx.coroutines.delay(33L)
             }
         }
@@ -756,29 +785,29 @@ fun CutScreen(
                     Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
                     // Kontainer Kedua Track (V1 Video/Foto & A1 Audio) dengan Playhead Bergerak
-                    Box(
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .padding(vertical = 4.dp)
                     ) {
+                        val timelineViewportWidth = maxWidth
+                        val timelineContentWidth = timelineViewportWidth + (totalTimelineDurationMs / 30f).dp
                         Column(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .horizontalScroll(timelineScroll),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                        Spacer(modifier = Modifier.width(60.dp))
-
                         // ============================================
                         // TRACK V1 (VIDEO & FOTO)
                         // ============================================
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.height(72.dp)
+                            modifier = Modifier
+                                .width(timelineContentWidth)
+                                .height(72.dp)
                         ) {
-                            Spacer(modifier = Modifier.width(60.dp))
-
+                            Box(modifier = Modifier.fillMaxSize()) {
                             if (videoClips.isEmpty()) {
                                 Surface(
                                     onClick = {
@@ -790,6 +819,7 @@ fun CutScreen(
                                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     modifier = Modifier
+                                        .offset(x = 60.dp)
                                         .width(300.dp)
                                         .fillMaxHeight()
                                         .padding(vertical = 4.dp, horizontal = 2.dp)
@@ -816,11 +846,12 @@ fun CutScreen(
                             } else {
                                 videoClips.forEach { clip ->
                                     val isSelected = clip.id == selectedClipId && selectedClipMediaType != ClipMediaType.AUDIO
-                                    val clipWidth = (clip.durationMs / 30).toInt().dp
+                                    val clipWidth = (clip.durationMs / 30f).dp
 
                                     Box(
                                         modifier = Modifier
-                                            .width(clipWidth.coerceAtLeast(100.dp))
+                                            .offset(x = 60.dp + (clip.startOffsetMs / 30f).dp)
+                                            .width(clipWidth.coerceAtLeast(1.dp))
                                             .fillMaxHeight()
                                             .padding(horizontal = 2.dp)
                                             .clip(RoundedCornerShape(8.dp))
@@ -904,19 +935,18 @@ fun CutScreen(
                                     }
                                 }
                             }
-
-                            Spacer(modifier = Modifier.width(60.dp))
+                            }
                         }
 
                         // ============================================
                         // TRACK A1 (AUDIO & SFX)
                         // ============================================
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.height(56.dp)
+                            modifier = Modifier
+                                .width(timelineContentWidth)
+                                .height(56.dp)
                         ) {
-                            Spacer(modifier = Modifier.width(60.dp))
-
+                            Box(modifier = Modifier.fillMaxSize()) {
                             if (audioClips.isEmpty()) {
                                 Surface(
                                     onClick = {
@@ -928,6 +958,7 @@ fun CutScreen(
                                     color = Color(0xFF10B981).copy(alpha = 0.08f),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.25f)),
                                     modifier = Modifier
+                                        .offset(x = 60.dp)
                                         .width(260.dp)
                                         .fillMaxHeight()
                                         .padding(vertical = 4.dp, horizontal = 2.dp)
@@ -954,11 +985,12 @@ fun CutScreen(
                             } else {
                                 audioClips.forEach { clip ->
                                 val isSelected = clip.id == selectedClipId && selectedClipMediaType == ClipMediaType.AUDIO
-                                val clipWidth = (clip.durationMs / 30).toInt().dp
+                                val clipWidth = (clip.durationMs / 30f).dp
 
                                 Box(
                                     modifier = Modifier
-                                        .width(clipWidth.coerceAtLeast(90.dp))
+                                        .offset(x = 60.dp + (clip.startOffsetMs / 30f).dp)
+                                        .width(clipWidth.coerceAtLeast(1.dp))
                                         .fillMaxHeight()
                                         .padding(horizontal = 2.dp)
                                         .clip(RoundedCornerShape(8.dp))
@@ -1036,8 +1068,7 @@ fun CutScreen(
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.width(60.dp))
+                            }
                         }
                     }
 
@@ -1073,15 +1104,15 @@ fun CutScreen(
             onDismiss = { showImportDialog = false },
             onPickVideo = {
                 showImportDialog = false
-                videoPickerLauncher.launch("video/*")
+                videoPickerLauncher.launch(arrayOf("video/*"))
             },
             onPickPhoto = {
                 showImportDialog = false
-                photoPickerLauncher.launch("image/*")
+                photoPickerLauncher.launch(arrayOf("image/*"))
             },
             onPickAudio = {
                 showImportDialog = false
-                audioPickerLauncher.launch("audio/*")
+                audioPickerLauncher.launch(arrayOf("audio/*"))
             },
             onAddPresetVideoPhoto = { name, isPhoto, durationMs, color ->
                 showImportDialog = false
